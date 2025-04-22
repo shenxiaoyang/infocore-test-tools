@@ -387,7 +387,17 @@ class FileCompareUI(QWidget):
         splitter = QSplitter(Qt.Horizontal)
         splitter.setStyleSheet("""
             QSplitter::handle {
-                background-color: #dcdde1;
+                background: #2f3640;
+                width: 2px;
+                margin-left: 2px;
+                margin-right: 2px;
+            }
+            QSplitter::handle:hover {
+                background: #3742fa;
+                width: 2px;
+            }
+            QSplitter::handle:pressed {
+                background: #1e90ff;
                 width: 2px;
             }
         """)

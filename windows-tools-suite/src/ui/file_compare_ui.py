@@ -211,6 +211,15 @@ class DiffHighlighter(QSyntaxHighlighter):
             if diff_type in self.formats:
                 self.setFormat(0, len(text), self.formats[diff_type])
 
+    def clear_highlighting(self):
+        """清除所有高亮"""
+        self.diff_types = {}
+        if self.document():
+            self.document().blockSignals(True)
+            # 重新应用空的高亮
+            self.rehighlight()
+            self.document().blockSignals(False)
+
 class FileCompareUI(QWidget):
     def __init__(self):
         super().__init__()
@@ -429,6 +438,22 @@ class FileCompareUI(QWidget):
         
         layout.addWidget(result_container)
         
+        # 添加对比状态栏
+        self.compare_status_label = QLabel("")
+        self.compare_status_label.setStyleSheet("""
+            QLabel {
+                padding: 2px 5px;
+                border: 1px solid #dcdde1;
+                border-radius: 2px;
+                background-color: #f5f5f5;
+                min-height: 16px;
+                max-height: 16px;
+                font-size: 12px;
+            }
+        """)
+        self.compare_status_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.compare_status_label)
+        
         # 创建高亮器
         self.left_highlighter = DiffHighlighter(self.left_text.document())
         self.right_highlighter = DiffHighlighter(self.right_text.document())
@@ -454,6 +479,10 @@ class FileCompareUI(QWidget):
             self.logger.warning("未选择文件")
             return
             
+        # 清除之前的高亮
+        self.left_highlighter.clear_highlighting()
+        self.right_highlighter.clear_highlighting()
+        
         # 检查文件大小
         left_size = os.path.getsize(self.left_file) / (1024 * 1024)  # 转换为MB
         right_size = os.path.getsize(self.right_file) / (1024 * 1024)  # 转换为MB
@@ -631,6 +660,37 @@ class FileCompareUI(QWidget):
             self.logger.info("开始设置差异高亮...")
             self.left_highlighter.set_diff_types(result['left_diff_types'])
             self.right_highlighter.set_diff_types(result['right_diff_types'])
+            
+            # 更新对比状态
+            total_diff_lines = len(result['left_diff_types']) + len(result['right_diff_types'])
+            if total_diff_lines == 0:
+                self.compare_status_label.setStyleSheet("""
+                    QLabel {
+                        padding: 2px 5px;
+                        border: 1px solid #4CAF50;
+                        border-radius: 2px;
+                        background-color: #E8F5E9;
+                        color: #2E7D32;
+                        min-height: 16px;
+                        max-height: 16px;
+                        font-size: 12px;
+                    }
+                """)
+                self.compare_status_label.setText("全部一致")
+            else:
+                self.compare_status_label.setStyleSheet("""
+                    QLabel {
+                        padding: 2px 5px;
+                        border: 1px solid #f44336;
+                        border-radius: 2px;
+                        background-color: #FFEBEE;
+                        color: #C62828;
+                        min-height: 16px;
+                        max-height: 16px;
+                        font-size: 12px;
+                    }
+                """)
+                self.compare_status_label.setText(f"发现 {total_diff_lines} 行不一致")
             
             self.progress_dialog.setValue(100)
             

@@ -11,6 +11,12 @@ from src.ui.file_verify_ui import FileVerifyUI
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        # 添加窗口实例属性
+        self.md5_calculator_window = None
+        self.file_compare_window = None
+        self.file_generator_window = None
+        self.file_verify_window = None
+        
         self.setWindowTitle("Windows工具集")
         self.setMinimumSize(800, 600)
         self.setStyleSheet("""
@@ -262,37 +268,59 @@ class MainWindow(QMainWindow):
         layout.addStretch(0)
     
     def open_md5_calculator(self):
-        self.md5_calculator = MD5CalculatorUI()
-        self.md5_calculator.show()
+        """打开MD5计算器窗口（单例模式）"""
+        if self.md5_calculator_window is None or not self.md5_calculator_window.isVisible():
+            self.md5_calculator_window = MD5CalculatorUI()
+            self.md5_calculator_window.show()
+        else:
+            self.md5_calculator_window.activateWindow()
+            self.md5_calculator_window.raise_()
         
     def open_system_disk_calculator(self):
-        self.md5_calculator = MD5CalculatorUI()
-        # 设置系统相关的文件扩展名
-        self.md5_calculator.ext_input.setText(".exe,.dll,.sys")
-        # 清空目录列表
-        self.md5_calculator.dir_list.clear()
-        # 添加Windows目录
-        windows_dir = os.environ.get('SystemRoot', 'C:\\Windows')
-        self.md5_calculator.dir_list.addItem(windows_dir)
-        # 显示窗口
-        self.md5_calculator.show()
-        # 自动开始计算
-        self.md5_calculator.start_calculation()
+        """打开系统盘MD5计算器窗口（单例模式）"""
+        if self.md5_calculator_window is None or not self.md5_calculator_window.isVisible():
+            self.md5_calculator_window = MD5CalculatorUI()
+            # 设置系统相关的文件扩展名
+            self.md5_calculator_window.ext_input.setText(".exe,.dll,.sys")
+            # 清空目录列表
+            self.md5_calculator_window.dir_list.clear()
+            # 添加Windows目录
+            windows_dir = os.environ.get('SystemRoot', 'C:\\Windows')
+            self.md5_calculator_window.dir_list.addItem(windows_dir)
+            # 显示窗口
+            self.md5_calculator_window.show()
+            # 自动开始计算
+            self.md5_calculator_window.start_calculation()
+        else:
+            self.md5_calculator_window.activateWindow()
+            self.md5_calculator_window.raise_()
 
     def open_file_compare(self):
-        """打开文件对比窗口"""
-        self.file_compare = FileCompareUI()
-        self.file_compare.show()
+        """打开文件对比窗口（单例模式）"""
+        if self.file_compare_window is None or not self.file_compare_window.isVisible():
+            self.file_compare_window = FileCompareUI()
+            self.file_compare_window.show()
+        else:
+            self.file_compare_window.activateWindow()
+            self.file_compare_window.raise_()
 
     def open_file_generator(self):
-        """打开本地文件产生器窗口"""
-        self.file_generator = FileGeneratorUI()
-        self.file_generator.show()
+        """打开本地文件产生器窗口（单例模式）"""
+        if self.file_generator_window is None or not self.file_generator_window.isVisible():
+            self.file_generator_window = FileGeneratorUI()
+            self.file_generator_window.show()
+        else:
+            self.file_generator_window.activateWindow()
+            self.file_generator_window.raise_()
 
     def open_file_verify(self):
-        """打开文件校验窗口"""
-        self.file_verify = FileVerifyUI()
-        self.file_verify.show()
+        """打开文件校验窗口（单例模式）"""
+        if self.file_verify_window is None or not self.file_verify_window.isVisible():
+            self.file_verify_window = FileVerifyUI()
+            self.file_verify_window.show()
+        else:
+            self.file_verify_window.activateWindow()
+            self.file_verify_window.raise_()
 
     def show_verify_message(self):
         """显示文件校验功能开发中的提示"""

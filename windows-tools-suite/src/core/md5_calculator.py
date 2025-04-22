@@ -1,5 +1,6 @@
 import os
 import hashlib
+import sys
 from ..utils.logger import Logger
 import time
 
@@ -88,8 +89,9 @@ class MD5Calculator:
     def prepare_output_file(self):
         """准备输出文件"""
         try:
-            # 确保输出目录存在
-            output_dir = "output"
+            # 使用exe所在目录作为基准目录
+            base_dir = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
+            output_dir = os.path.join(base_dir, "output")
             os.makedirs(output_dir, exist_ok=True)
             
             # 查找下一个可用的文件序号

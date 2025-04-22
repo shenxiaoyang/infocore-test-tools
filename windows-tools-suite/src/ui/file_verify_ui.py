@@ -5,6 +5,7 @@ import os
 import hashlib
 import logging
 from datetime import datetime
+import sys
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -46,13 +47,14 @@ class FileVerifyWorker(QThread):
                         self.total_files += 1
             
             if self.total_files == 0:
-                self.progress.emit("未找到.md5file文件")
+                self.progress.emit("所选目录中无可校验的.md5file文件")
                 return
                 
             self.progress.emit(f"找到 {self.total_files} 个.md5file文件，开始校验...")
             
-            # 创建output目录（在程序执行目录下）
-            output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'output')
+            # 创建output目录（在exe所在目录下）
+            base_dir = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
+            output_dir = os.path.join(base_dir, 'output')
             os.makedirs(output_dir, exist_ok=True)
             
             # 生成输出文件名

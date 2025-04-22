@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 
@@ -8,16 +9,21 @@ class Logger:
         self.logger = logging.getLogger(name)
         self.logger.setLevel(logging.INFO)
         
+        # 使用exe所在目录作为基准目录
+        base_dir = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
+        
         # 创建logs目录
-        if not os.path.exists("logs"):
-            os.makedirs("logs")
+        logs_dir = os.path.join(base_dir, "logs")
+        if not os.path.exists(logs_dir):
+            os.makedirs(logs_dir)
             
         # 创建output目录
-        if not os.path.exists("output"):
-            os.makedirs("output")
+        output_dir = os.path.join(base_dir, "output")
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
         
         # 设置日志文件名（使用当前日期）
-        log_file = os.path.join("logs", f"{datetime.now().strftime('%Y%m%d')}.log")
+        log_file = os.path.join(logs_dir, f"{datetime.now().strftime('%Y%m%d')}.log")
         
         # 创建文件处理器，使用 RotatingFileHandler
         file_handler = RotatingFileHandler(

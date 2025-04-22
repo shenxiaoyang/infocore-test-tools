@@ -8,6 +8,7 @@ import random
 import time
 import shutil
 import logging
+import re
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -17,6 +18,7 @@ class FileGeneratorWorker(QThread):
     """文件生成工作线程"""
     progress = pyqtSignal(str)  # 进度信号
     finished = pyqtSignal()     # 完成信号
+    stopped = pyqtSignal()      # 停止信号
     progress_value = pyqtSignal(int)  # 进度值信号
     
     def __init__(self, target_dir, file_size_min, file_size_max, 
@@ -31,6 +33,7 @@ class FileGeneratorWorker(QThread):
         self.interval = interval
         self.is_running = True
         self.is_paused = False
+        self.was_stopped = False  # 添加停止标志
         self.total_size = 0  # 添加总大小统计
         # 生成随机目录名
         random_suffix = ''.join(random.choices('0123456789ABCDEF', k=8))
@@ -84,93 +87,110 @@ class FileGeneratorWorker(QThread):
     def run(self):
         logger.info("工作线程开始运行")
         
-        while self.is_running:
-            # 如果是循环模式且文件夹存在，则清空文件夹
-            if os.path.exists(self.files_dir):
-                if self.is_loop:
-                    logger.info(f"清空目录: {self.files_dir}")
-                    shutil.rmtree(self.files_dir)
-                else:
-                    error_msg = f"目标文件夹 {self.files_dir} 已存在。如需重新生成，请删除该文件夹或选择其他目录。"
-                    logger.warning(error_msg)
-                    self.progress.emit(error_msg)
-                    break
-            
-            try:
-                # 创建文件夹
-                logger.info(f"创建目录: {self.files_dir}")
-                os.makedirs(self.files_dir, exist_ok=True)
-                
-                # 发送开始生成的信息
-                start_msg = f"开始生成文件\n文件生成目录：{self.files_dir}"
-                self.progress.emit(start_msg)
-                
-                files_created = 0
-                self.total_size = 0  # 重置总大小统计
-                while files_created < self.max_files and self.is_running:
-                    # 检查暂停状态
-                    while self.is_paused and self.is_running:
-                        time.sleep(0.1)
-                    
-                    if not self.is_running:
+        try:
+            while self.is_running:
+                # 如果文件夹存在，且是循环模式，则清空文件夹
+                if os.path.exists(self.files_dir):
+                    if self.is_loop:
+                        logger.info(f"清空目录: {self.files_dir}")
+                        shutil.rmtree(self.files_dir)
+                        time.sleep(1)  # 等待文件系统完成删除操作
+                    else:
+                        error_msg = f"目标文件夹 {self.files_dir} 已存在。如需重新生成，请删除该文件夹或选择其他目录。"
+                        logger.warning(error_msg)
+                        self.progress.emit(error_msg)
                         break
+                
+                try:
+                    # 创建文件夹
+                    logger.info(f"创建目录: {self.files_dir}")
+                    os.makedirs(self.files_dir, exist_ok=True)
                     
-                    # 生成随机大小的文件
-                    min_bytes = self.convert_to_bytes(self.file_size_min, self.size_unit)
-                    max_bytes = self.convert_to_bytes(self.file_size_max, self.size_unit)
-                    file_size = random.randint(min_bytes, max_bytes)
+                    # 发送开始生成的信息
+                    start_msg = f"开始{'新一轮' if self.is_loop else ''}文件生成\n文件生成目录：{self.files_dir}"
+                    self.progress.emit(start_msg)
                     
-                    # 创建临时文件名
-                    temp_file = os.path.join(self.files_dir, f"temp_{files_created}")
+                    files_created = 0
+                    self.total_size = 0
+                    while files_created < self.max_files and self.is_running:
+                        # 检查暂停状态
+                        while self.is_paused and self.is_running:
+                            time.sleep(0.1)
+                        
+                        if not self.is_running:
+                            break
+                        
+                        # 生成随机大小的文件
+                        min_bytes = self.convert_to_bytes(self.file_size_min, self.size_unit)
+                        max_bytes = self.convert_to_bytes(self.file_size_max, self.size_unit)
+                        file_size = random.randint(min_bytes, max_bytes)
+                        
+                        # 创建临时文件名
+                        temp_file = os.path.join(self.files_dir, f"temp_{files_created}")
+                        
+                        # 生成文件内容并获取MD5
+                        md5 = self.generate_file_content(temp_file, file_size)
+                        if md5 is None:  # 如果返回None，说明生成被中止
+                            break
+                            
+                        # 重命名为MD5文件名
+                        final_path = os.path.join(self.files_dir, f"{md5}.md5file")
+                        os.rename(temp_file, final_path)
+                        
+                        self.total_size += file_size
+                        files_created += 1
+                        
+                        # 计算进度百分比
+                        progress_percent = int((files_created / self.max_files) * 100)
+                        self.progress_value.emit(progress_percent)
+                        
+                        # 更新进度信息，添加循环模式的提示
+                        progress_msg = (f"文件生成目录：{self.files_dir}\n"
+                                      f"当前{'循环模式，' if self.is_loop else ''}已生成 {files_created} 个文件，共需要 {self.max_files} 个\n"
+                                      f"已生成文件总大小：{self.format_size(self.total_size)}\n")
+                        logger.debug(f"已生成 {files_created} 个文件")
+                        self.progress.emit(progress_msg)
+                        
+                        # 等待指定间隔
+                        time.sleep(self.interval)
                     
-                    # 生成文件内容并获取MD5
-                    md5 = self.generate_file_content(temp_file, file_size)
-                    if md5 is None:  # 如果返回None，说明生成被中止
+                    if files_created > 0:
+                        complete_msg = (f"{'本轮' if self.is_loop else ''}文件生成完成\n"
+                                      f"文件生成目录：{self.files_dir}\n"
+                                      f"共生成了 {files_created} 个文件\n"
+                                      f"文件总大小：{self.format_size(self.total_size)}")
+                        self.progress.emit(complete_msg)
+                    
+                    # 如果不是循环模式，或者生成被停止，则退出主循环
+                    if not self.is_loop or not self.is_running:
                         break
                         
-                    # 重命名为MD5文件名
-                    final_path = os.path.join(self.files_dir, f"{md5}.md5file")
-                    os.rename(temp_file, final_path)
+                    # 如果是循环模式，等待一段时间后开始下一轮
+                    if self.is_loop and self.is_running:
+                        self.progress.emit("等待3秒后开始下一轮文件生成...")
+                        time.sleep(3)
                     
-                    self.total_size += file_size
-                    files_created += 1
-                    
-                    # 计算进度百分比
-                    progress_percent = int((files_created / self.max_files) * 100)
-                    self.progress_value.emit(progress_percent)
-                    
-                    progress_msg = (f"文件生成目录：{self.files_dir}\n"
-                                  f"已生成 {files_created} 个文件，共需要 {self.max_files} 个\n"
-                                  f"已生成文件总大小：{self.format_size(self.total_size)}")
-                    logger.debug(f"已生成 {files_created} 个文件")
-                    self.progress.emit(progress_msg)
-                    
-                    # 等待指定间隔
-                    time.sleep(self.interval)
-                
-                if not self.is_loop:
+                except Exception as e:
+                    error_msg = f"生成文件时出错: {str(e)}"
+                    logger.error(error_msg)
+                    self.progress.emit(error_msg)
                     break
                     
-            except Exception as e:
-                error_msg = f"生成文件时出错: {str(e)}"
-                logger.error(error_msg)
-                self.progress.emit(error_msg)
-                break
-        
-        # 发送完成信息
-        if files_created > 0:
-            complete_msg = (f"文件生成完成\n"
-                          f"文件生成目录：{self.files_dir}\n"
-                          f"共生成了 {files_created} 个文件\n"
-                          f"文件总大小：{self.format_size(self.total_size)}")
-            self.progress.emit(complete_msg)
+        except Exception as e:
+            error_msg = f"生成过程出现错误: {str(e)}"
+            logger.error(error_msg)
+            self.progress.emit(error_msg)
         
         logger.info("工作线程结束运行")
-        self.finished.emit()
+        if self.was_stopped:
+            self.stopped.emit()
+        else:
+            self.finished.emit()
         
     def stop(self):
         """停止生成"""
         self.is_running = False
+        self.was_stopped = True
         
     def pause(self):
         """暂停生成"""
@@ -184,13 +204,14 @@ class FileGeneratorUI(QWidget):
     def __init__(self):
         super().__init__()
         self.worker = None
+        self.current_progress = 0  # 添加当前进度记录
         logger.info("初始化文件生成器UI")
         self.initUI()
         
     def initUI(self):
         self.setWindowTitle('本地文件产生器')
         self.setMinimumWidth(600)
-        self.setMinimumHeight(600)  # 增加最小高度
+        self.setMinimumHeight(660)  # 增加最小高度
         self.setStyleSheet("""
             QWidget {
                 font-family: Microsoft YaHei, Arial;
@@ -582,7 +603,7 @@ class FileGeneratorUI(QWidget):
                 self.set_running_state()
                 # 移除状态中的暂停标记
                 current_status = self.status_label.text()
-                self.status_label.setText(current_status.replace("\n[已暂停]", ""))
+                self.status_label.setText(current_status.replace("[已暂停]", ""))
             return
             
         try:
@@ -603,12 +624,14 @@ class FileGeneratorUI(QWidget):
             self.worker.progress.connect(self.update_progress)
             self.worker.progress_value.connect(self.update_progress_bar)
             self.worker.finished.connect(self.generation_finished)
+            self.worker.stopped.connect(self.generation_stopped)  # 添加停止信号连接
             
             # 更新状态
             status_msg = "正在准备生成文件..."
             logger.info(status_msg)
             self.status_label.setText(status_msg)
             self.progress_bar.setValue(0)
+            self.current_progress = 0  # 重置当前进度
             
             # 启动线程
             logger.info("启动工作线程")
@@ -639,7 +662,7 @@ class FileGeneratorUI(QWidget):
                 self.set_paused_state()
                 # 在状态标签的当前文本后添加暂停状态
                 current_status = self.status_label.text()
-                self.status_label.setText(current_status + "\n[已暂停]")
+                self.status_label.setText(current_status + "[已暂停]")
 
     def stop_generation(self):
         """停止生成"""
@@ -647,7 +670,9 @@ class FileGeneratorUI(QWidget):
             logger.info("停止生成")
             self.worker.stop()
             self.set_initial_state()
-            self.status_label.setText("已停止生成")
+            # 保持当前进度值，添加停止状态提示
+            current_progress = self.progress_bar.value()
+            self.status_label.setText(f"已停止生成 - 进度 {current_progress}%")
             self.disable_inputs(False)
 
     def update_progress(self, message):
@@ -671,8 +696,33 @@ class FileGeneratorUI(QWidget):
         
     def update_progress_bar(self, value):
         """更新进度条"""
+        self.current_progress = value  # 记录当前进度
         self.progress_bar.setValue(value)
         
+    def generation_stopped(self):
+        """生成停止的处理"""
+        logger.info("生成已停止")
+        self.set_initial_state()
+        self.disable_inputs(False)
+        self.setWindowTitle('本地文件产生器')
+        
+        # 获取当前状态文本中的详细信息
+        current_status = self.status_label.text()
+        self.status_label.setText(current_status + "[已停止]")
+                    
+        # 只改变状态区的颜色样式
+        self.status_label.setStyleSheet("""
+            QLabel {
+                padding: 8px;
+                min-height: 40px;
+                color: #FF5722;
+                background-color: #FBE9E7;
+                border: 1px solid #FFCCBC;
+                border-radius: 4px;
+                qproperty-wordWrap: true;
+            }
+        """)
+
     def generation_finished(self):
         """生成完成的处理"""
         logger.info("生成完成")
@@ -695,7 +745,7 @@ class FileGeneratorUI(QWidget):
                     qproperty-wordWrap: true;
                 }
             """)
-        
+
     def disable_inputs(self, disabled):
         """禁用/启用输入控件"""
         self.dir_edit.setEnabled(not disabled)

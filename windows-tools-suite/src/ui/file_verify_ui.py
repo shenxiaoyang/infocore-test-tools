@@ -21,6 +21,10 @@ class FileVerifyWorker(QThread):
     def __init__(self, target_dir):
         super().__init__()
         self.target_dir = target_dir
+        self.reset()
+        
+    def reset(self):
+        """重置所有状态"""
         self.is_running = True
         self.is_paused = False
         self.total_files = 0
@@ -426,6 +430,13 @@ class FileVerifyUI(QWidget):
             return
             
         try:
+            # 重置所有显示状态
+            self.progress_bar.setValue(0)
+            self.total_label.setText("总数: 0")
+            self.success_label.setText("成功: 0")
+            self.failed_label.setText("失败: 0")
+            self.status_label.setText("正在准备校验...")
+            
             self.worker = FileVerifyWorker(self.dir_edit.text())
             self.worker.progress.connect(self.update_progress)
             self.worker.progress_value.connect(self.update_progress_bar)
@@ -434,9 +445,6 @@ class FileVerifyUI(QWidget):
             
             self.set_running_state()
             self.dir_edit.setEnabled(False)
-            
-            self.status_label.setText("正在准备校验...")
-            self.progress_bar.setValue(0)
             
             self.worker.start()
             

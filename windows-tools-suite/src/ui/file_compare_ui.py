@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
                            QLabel, QFileDialog, QPlainTextEdit, QSplitter, QGroupBox, QFrame,
-                           QProgressDialog)
+                           QProgressDialog, QCheckBox)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt5.QtGui import QColor, QTextCharFormat, QSyntaxHighlighter
 from ..utils.logger import Logger
@@ -472,6 +472,15 @@ class FileCompareUI(QWidget):
         self.left_file = ""
         self.right_file = ""
         
+        # ======= 新增功能栏 =======
+        feature_bar = QHBoxLayout()
+        self.only_diff_checkbox = QCheckBox("仅显示不同内容")
+        self.only_diff_checkbox.setChecked(False)
+        self.only_diff_checkbox.stateChanged.connect(self.on_only_diff_changed)
+        feature_bar.addWidget(self.only_diff_checkbox)
+        feature_bar.addStretch(1)
+        layout.addLayout(feature_bar)
+        
     def select_file(self, side):
         self.logger.info(f"选择{side}侧文件")
         file_path, _ = QFileDialog.getOpenFileName(self, "选择文件")
@@ -636,18 +645,11 @@ class FileCompareUI(QWidget):
             self.left_text.clear()
             self.right_text.clear()
             
-            # 准备文本内容
-            left_lines = result['left_lines']
-            right_lines = result['right_lines']
+            # 保存完整对比结果
+            self._compare_result = result
             
-            # 一次性设置所有文本
-            self.logger.info("正在设置文本内容...")
-            left_text = ''.join(left_lines)
-            right_text = ''.join(right_lines)
-            
-            # 使用setPlainText一次性设置文本
-            self.left_text.setPlainText(left_text)
-            self.right_text.setPlainText(right_text)
+            # 根据复选框状态显示内容
+            self.filter_diff_lines(self.only_diff_checkbox.isChecked())
             
             # 重新启用更新和滚动条
             self.left_text.setUpdatesEnabled(True)
@@ -664,15 +666,11 @@ class FileCompareUI(QWidget):
             # 重新启用同步滚动
             self.sync_scroll = True
             
-            self.progress_dialog.setValue(50)
-            
-            # 设置高亮
-            self.logger.info("开始设置差异高亮...")
-            self.left_highlighter.set_diff_types(result['left_diff_types'])
-            self.right_highlighter.set_diff_types(result['right_diff_types'])
+            self.progress_dialog.setValue(100)
             
             # 更新对比状态
-            total_diff_lines = len(result['left_diff_types']) + len(result['right_diff_types'])
+            diff_indexes = set(result['left_diff_types'].keys()) | set(result['right_diff_types'].keys())
+            total_diff_lines = len(diff_indexes)
             if total_diff_lines == 0:
                 self.compare_status_label.setStyleSheet("""
                     QLabel {
@@ -701,8 +699,6 @@ class FileCompareUI(QWidget):
                     }
                 """)
                 self.compare_status_label.setText(f"发现 {total_diff_lines} 行不一致")
-            
-            self.progress_dialog.setValue(100)
             
         except Exception as e:
             self.logger.error(f"显示结果出错: {str(e)}")
@@ -752,4 +748,42 @@ class FileCompareUI(QWidget):
             self.logger.error(f"检查文件类型时出错: {str(e)}")
             return False
             
-        return True 
+        return True
+
+    def on_only_diff_changed(self, state):
+        only_diff = self.only_diff_checkbox.isChecked()
+        self.filter_diff_lines(only_diff)
+
+    def filter_diff_lines(self, only_diff):
+        """根据复选框状态过滤显示内容"""
+        if not hasattr(self, "_compare_result") or not self._compare_result:
+            return
+
+        result = self._compare_result
+        left_lines = result['left_lines']
+        right_lines = result['right_lines']
+        left_diff_types = result['left_diff_types']
+        right_diff_types = result['right_diff_types']
+
+        if only_diff:
+            # 只显示有差异的行
+            diff_indexes = set(left_diff_types.keys()) | set(right_diff_types.keys())
+            diff_indexes = sorted(diff_indexes)
+            left_display = [left_lines[i-1] for i in diff_indexes]
+            right_display = [right_lines[i-1] for i in diff_indexes]
+            # 重新设置高亮
+            left_types = {idx: left_diff_types.get(idx, "") for idx in diff_indexes}
+            right_types = {idx: right_diff_types.get(idx, "") for idx in diff_indexes}
+        else:
+            # 显示全部
+            left_display = left_lines
+            right_display = right_lines
+            left_types = left_diff_types
+            right_types = right_diff_types
+
+        # 更新文本内容
+        self.left_text.setPlainText(''.join(left_display))
+        self.right_text.setPlainText(''.join(right_display))
+        # 更新高亮
+        self.left_highlighter.set_diff_types(left_types)
+        self.right_highlighter.set_diff_types(right_types) 

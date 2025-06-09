@@ -277,6 +277,7 @@ class MD5Calculator:
         
         # 记录被排除的文件
         if skipped_files:
+            os.makedirs("output", exist_ok=True)  # 确保output目录存在
             skip_file = os.path.join("output", f"skipped-{int(time.time())}.log")
             with open(skip_file, 'w', encoding='utf-8') as f:
                 f.write("以下文件因被排除而跳过：\n")
@@ -302,3 +303,8 @@ class MD5Calculator:
         )
         self.logger.info(final_msg)
         return self.output_file
+
+    def reset(self):
+        self.output_file = None
+        self.total_md5 = hashlib.md5()
+        self.current_directory = ""

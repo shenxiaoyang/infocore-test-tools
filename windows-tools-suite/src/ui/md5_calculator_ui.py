@@ -385,6 +385,7 @@ class MD5CalculatorUI(QWidget):
             self.logger.info(f"添加目录到列表: {dir_path}")
     
     def start_calculation(self):
+        self.calculator.reset()
         # 获取所有目录
         directories = [self.dir_list.item(i).text() for i in range(self.dir_list.count())]
         if not directories:

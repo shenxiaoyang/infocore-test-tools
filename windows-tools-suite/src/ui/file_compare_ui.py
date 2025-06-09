@@ -505,11 +505,13 @@ class FileCompareUI(QWidget):
         # 检查文件大小
         left_size = os.path.getsize(self.left_file) / (1024 * 1024)  # 转换为MB
         right_size = os.path.getsize(self.right_file) / (1024 * 1024)  # 转换为MB
+
+        max_size_mb = 20
         
-        if left_size > 10 or right_size > 10:
-            self.logger.warning("文件大小超过10MB，不予对比")
-            self.left_text.setPlainText(f"错误：文件大小超过10MB限制，不予对比\n左侧文件: {left_size:.2f}MB\n右侧文件: {right_size:.2f}MB")
-            self.right_text.setPlainText(f"错误：文件大小超过10MB限制，不予对比\n左侧文件: {left_size:.2f}MB\n右侧文件: {right_size:.2f}MB")
+        if left_size > max_size_mb or right_size > max_size_mb:
+            self.logger.warning(f"文件大小超过{max_size_mb}MB，不予对比")
+            self.left_text.setPlainText(f"错误：文件大小超过{max_size_mb}MB限制，不予对比\n左侧文件: {left_size:.2f}MB\n右侧文件: {right_size:.2f}MB")
+            self.right_text.setPlainText(f"错误：文件大小超过{max_size_mb}MB限制，不予对比\n左侧文件: {left_size:.2f}MB\n右侧文件: {right_size:.2f}MB")
             return
             
         # 检查是否为文本文件

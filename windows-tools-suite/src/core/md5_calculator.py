@@ -159,6 +159,7 @@ class MD5Calculator:
         self.current_directory = directory
         self.logger.info(f"开始扫描目录: {directory}")
         self.logger.info(f"文件扩展名过滤: {'所有文件' if match_all else ', '.join(extensions)}")
+        self.logger.info(exclude_keywords)
         
         # 遍历目录并处理文件
         for root, dirs, files in os.walk(directory):
@@ -173,6 +174,7 @@ class MD5Calculator:
             for file in files:
                 file_path = os.path.join(root, file)
                 total_scanned += 1
+                self.logger.info(file_path)
                 
                 try:
                     file_size = os.path.getsize(file_path)
@@ -197,10 +199,21 @@ class MD5Calculator:
                     skipped_files.append((file_path, "扩展名不匹配"))
                     continue
                     
-                # 检查是否包含排除关键字
-                if any(keyword.lower() in file.lower() for keyword in exclude_keywords):
-                    self.logger.debug(f"跳过文件（关键字排除）: {file_path}")  # 改为 debug 级别
-                    skipped_files.append((file_path, "关键字排除"))
+                # 检查是否包含排除关键字（增强日志）
+                matched_keyword = None
+                for keyword in exclude_keywords:
+                    if keyword.lower() in file_path.lower():
+                        matched_keyword = keyword
+                        self.logger.debug(
+                            f"文件[{file_path}]包含排除关键字[{keyword}]，将被排除。"
+                        )
+                        break
+                    else:
+                        self.logger.debug(
+                            f"文件[{file_path}]未包含排除关键字[{keyword}]。"
+                        )
+                if matched_keyword:
+                    skipped_files.append((file_path, f"关键字排除({matched_keyword})"))
                     excluded_files += 1
                     continue
                 

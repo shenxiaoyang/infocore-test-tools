@@ -77,7 +77,16 @@ class FileVerifyWorker(QThread):
                             
                     if file.endswith('.md5file'):
                         file_path = os.path.join(root, file)
-                        expected_md5 = file[:-8]  # 去掉.md5file后缀
+                        # 兼容 编号.md5.md5file、md5.编号.md5file 和 md5.md5file
+                        parts = file.split('.')
+                        if len(parts) == 3 and parts[2] == 'md5file':
+                            # 形如 编号.md5.md5file 或 md5.编号.md5file
+                            if parts[0].isdigit():
+                                expected_md5 = parts[1]
+                            else:
+                                expected_md5 = parts[0]
+                        else:
+                            expected_md5 = file[:-8]  # 兼容老格式
                         actual_md5 = self.calculate_md5(file_path)
                         
                         self.checked_files += 1

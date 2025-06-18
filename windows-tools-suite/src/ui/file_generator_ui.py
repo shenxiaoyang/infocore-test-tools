@@ -133,8 +133,10 @@ class FileGeneratorWorker(QThread):
                         if md5 is None:  # 如果返回None，说明生成被中止
                             break
                             
-                        # 重命名为MD5文件名
-                        final_path = os.path.join(self.files_dir, f"{md5}.md5file")
+                        # 生成编号，左补0，宽度与最大文件数一致
+                        num_width = len(str(self.max_files))
+                        file_number = str(files_created+1).zfill(num_width)
+                        final_path = os.path.join(self.files_dir, f"{file_number}.{md5}.md5file")
                         os.rename(temp_file, final_path)
                         
                         self.total_size += file_size

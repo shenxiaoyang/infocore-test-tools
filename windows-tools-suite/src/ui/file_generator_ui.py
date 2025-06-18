@@ -35,6 +35,8 @@ class FileGeneratorWorker(QThread):
         self.is_paused = False
         self.was_stopped = False  # 添加停止标志
         self.total_size = 0  # 添加总大小统计
+        # 轮次编号
+        self.round_number = 1
         # 生成随机目录名
         random_suffix = ''.join(random.choices('0123456789ABCDEF', k=8))
         self.files_dir = os.path.join(self.target_dir, f'files_{random_suffix}')
@@ -102,7 +104,10 @@ class FileGeneratorWorker(QThread):
                         break
                 
                 try:
-                    # 创建文件夹
+                    # 每一轮都生成新的父目录名：轮次编号_8位随机数
+                    random_suffix = ''.join(random.choices('0123456789ABCDEF', k=8))
+                    parent_dir_name = f"{self.round_number}_{random_suffix}"
+                    self.files_dir = os.path.join(self.target_dir, parent_dir_name)
                     logger.info(f"创建目录: {self.files_dir}")
                     os.makedirs(self.files_dir, exist_ok=True)
                     
@@ -169,6 +174,7 @@ class FileGeneratorWorker(QThread):
                         
                     # 如果是循环模式，等待一段时间后开始下一轮
                     if self.is_loop and self.is_running:
+                        self.round_number += 1
                         self.progress.emit("等待3秒后开始下一轮文件生成...")
                         time.sleep(3)
                     

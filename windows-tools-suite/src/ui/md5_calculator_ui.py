@@ -78,7 +78,8 @@ class MD5CalculatorUI(QWidget):
             "viostor.sys", "E1G6032E.sys", "Wdfcoinstaller01005.dll",
             "Wdfcoinstaller01007.dll", "Wdfcoinstaller01009.dll",
             "WdfCoInstaller01011.dll", r"Windows\assembly", r"Windows\WinSxS",
-            r"Windows\servicing\LCU"
+            r"Windows\servicing\LCU", r"Windows\SoftwareDistribution\Download",
+            r"poqexec.exe", r"MRT.exe"
         ]
         self.worker = None  # 添加worker属性
         self.setMinimumWidth(800)  # 设置最小宽度

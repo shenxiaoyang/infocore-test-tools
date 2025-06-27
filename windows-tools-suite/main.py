@@ -249,8 +249,41 @@ class MainWindow(QMainWindow):
         verify_btn.leaveEvent = lambda e: self.update_subtitle("便捷实用的Windows工具箱")
         generator_layout.addWidget(verify_btn, stretch=3)  # 设置较小的拉伸比例
         
+        # 新增：扇区查看按钮行
+        sector_container = QFrame()
+        sector_container.setStyleSheet("""
+            QFrame {
+                background-color: transparent;
+                padding: 0px;
+            }
+        """)
+        sector_layout = QHBoxLayout()
+        sector_layout.setContentsMargins(20, 0, 20, 20)
+        sector_container.setLayout(sector_layout)
+        
+        sector_btn = QPushButton("扇区查看工具diskprobe.exe")
+        sector_btn.setMinimumHeight(60)
+        sector_btn.setStyleSheet("""
+            QPushButton {
+                text-align: left;
+                padding-left: 20px;
+                font-size: 16px;
+                font-weight: bold;
+                background-color: #f5f6fa;
+            }
+            QPushButton:hover {
+                background-color: #dfe4ea;
+            }
+        """)
+        sector_btn.clicked.connect(self.show_sector_message)
+        # 鼠标悬停事件
+        sector_btn.enterEvent = lambda e: self.update_subtitle("扇区查看工具用于查看磁盘扇区内容")
+        sector_btn.leaveEvent = lambda e: self.update_subtitle("便捷实用的Windows工具箱")
+        sector_layout.addWidget(sector_btn)
         tools_layout.addWidget(compare_container)
         tools_layout.addWidget(generator_container)
+        # 将扇区查看按钮放到最后
+        tools_layout.addWidget(sector_container)
         
         layout.addWidget(tools_container)
         
@@ -325,6 +358,14 @@ class MainWindow(QMainWindow):
     def show_verify_message(self):
         """显示文件校验功能开发中的提示"""
         self.open_file_verify()
+
+    def show_sector_message(self):
+        # 打开扇区查看工具 diskprobe.exe
+        exe_path = os.path.join(os.path.dirname(__file__), 'src', 'resources', 'diskprobe', 'diskprobe.exe')
+        try:
+            os.startfile(exe_path)
+        except Exception as e:
+            QMessageBox.warning(self, "扇区查看", f"无法打开扇区查看工具：{str(e)}")
 
     def update_subtitle(self, text):
         """更新副标题文本"""

@@ -11,7 +11,8 @@ a = Analysis(
     datas=[
         ('src/utils', 'src/utils'),
         ('src/core', 'src/core'),
-        ('src/ui', 'src/ui')
+        ('src/ui', 'src/ui'),
+        ('src/resources/diskprobe/diskprobe.exe', 'src/resources/diskprobe'),
     ],
     hiddenimports=[
         'PyQt5',
@@ -36,7 +37,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='Windows工具集-v1.0.12',
+    name='Windows工具集-v1.0.13',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

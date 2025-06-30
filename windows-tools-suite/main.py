@@ -1,8 +1,9 @@
 import sys
 import os
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
-                           QPushButton, QLabel, QFrame, QMessageBox, QHBoxLayout)
+                           QPushButton, QLabel, QFrame, QMessageBox, QHBoxLayout, QSizePolicy)
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QIcon
 from src.ui.md5_calculator_ui import MD5CalculatorUI
 from src.ui.file_compare_ui import FileCompareUI
 from src.ui.file_generator_ui import FileGeneratorUI
@@ -11,6 +12,9 @@ from src.ui.file_verify_ui import FileVerifyUI
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        # 设置窗口图标
+        icon_path = os.path.join(os.path.dirname(__file__), 'src', 'resources', 'icons', 'app.ico')
+        self.setWindowIcon(QIcon(icon_path))
         # 添加窗口实例属性
         self.md5_calculator_window = None
         self.file_compare_window = None
@@ -111,8 +115,8 @@ class MainWindow(QMainWindow):
         
         # 添加MD5计算器按钮
         md5_btn = QPushButton("MD5一致性计算器")
-        md5_btn.setMinimumHeight(60)
-        md5_btn.setMinimumWidth(400)
+        md5_btn.setMinimumHeight(56)  # 只设置高度
+        md5_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)  # 宽度自适应
         md5_btn.setStyleSheet("""
             QPushButton {
                 text-align: left;
@@ -134,7 +138,8 @@ class MainWindow(QMainWindow):
         
         # 添加快速计算系统盘按钮
         system_disk_btn = QPushButton("快速计算系统盘")
-        system_disk_btn.setMinimumHeight(60)
+        system_disk_btn.setMinimumHeight(56)
+        system_disk_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         system_disk_btn.setStyleSheet("""
             QPushButton {
                 text-align: left;
@@ -175,7 +180,8 @@ class MainWindow(QMainWindow):
         
         # 添加文件对比按钮
         compare_btn = QPushButton("文件对比")
-        compare_btn.setMinimumHeight(60)
+        compare_btn.setMinimumHeight(56)
+        compare_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         compare_btn.setStyleSheet("""
             QPushButton {
                 text-align: left;
@@ -209,7 +215,8 @@ class MainWindow(QMainWindow):
         
         # 添加文件产生器按钮
         generator_btn = QPushButton("本地文件产生器")
-        generator_btn.setMinimumHeight(60)
+        generator_btn.setMinimumHeight(56)
+        generator_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         generator_btn.setStyleSheet("""
             QPushButton {
                 text-align: left;
@@ -230,7 +237,8 @@ class MainWindow(QMainWindow):
 
         # 添加文件校验按钮
         verify_btn = QPushButton("文件校验")
-        verify_btn.setMinimumHeight(60)
+        verify_btn.setMinimumHeight(56)
+        verify_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         verify_btn.setStyleSheet("""
             QPushButton {
                 text-align: left;
@@ -262,7 +270,8 @@ class MainWindow(QMainWindow):
         sector_container.setLayout(sector_layout)
         
         sector_btn = QPushButton("扇区查看工具diskprobe.exe")
-        sector_btn.setMinimumHeight(60)
+        sector_btn.setMinimumHeight(56)
+        sector_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         sector_btn.setStyleSheet("""
             QPushButton {
                 text-align: left;

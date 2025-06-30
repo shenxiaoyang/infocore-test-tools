@@ -13,6 +13,7 @@ a = Analysis(
         ('src/core', 'src/core'),
         ('src/ui', 'src/ui'),
         ('src/resources/diskprobe/diskprobe.exe', 'src/resources/diskprobe'),
+        ('src/resources/icons/app.ico', 'src/resources/icons'),
     ],
     hiddenimports=[
         'PyQt5',
@@ -37,7 +38,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='Windows工具集-v1.0.13',
+    name='Windows工具集-v1.0.16',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -50,6 +51,6 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     onefile=True,
-    icon=None,  # 可以添加图标文件路径
+    icon='src/resources/icons/app.ico',  # 可以添加图标文件路径
     uac_admin=True  # 请求管理员权限
 ) 

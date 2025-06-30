@@ -117,6 +117,7 @@ class FileGeneratorWorker(QThread):
                     
                     files_created = 0
                     self.total_size = 0
+                    created_file_paths = []  # 新增：用于记录生成的文件全路径
                     while files_created < self.max_files and self.is_running:
                         # 检查暂停状态
                         while self.is_paused and self.is_running:
@@ -146,6 +147,7 @@ class FileGeneratorWorker(QThread):
                         
                         self.total_size += file_size
                         files_created += 1
+                        created_file_paths.append(os.path.abspath(final_path))  # 新增：记录全路径
                         
                         # 计算进度百分比
                         progress_percent = int((files_created / self.max_files) * 100)
@@ -160,6 +162,13 @@ class FileGeneratorWorker(QThread):
                         
                         # 等待指定间隔
                         time.sleep(self.interval)
+                    
+                    # 新增：写入all_created_files.txt
+                    if files_created > 0:
+                        all_files_txt = os.path.join(self.files_dir, "all_created_files.txt")
+                        with open(all_files_txt, "w", encoding="utf-8") as f:
+                            for path in created_file_paths:
+                                f.write(path + "\n")
                     
                     if files_created > 0:
                         complete_msg = (f"{'本轮' if self.is_loop else ''}文件生成完成\n"

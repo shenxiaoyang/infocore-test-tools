@@ -3,6 +3,7 @@ import hashlib
 import random
 import time
 from src.utils.common import format_size
+import shutil
 
 class FileGenerator:
     """
@@ -46,10 +47,18 @@ class FileGenerator:
         生成文件主流程。progress_callback: 进度回调，finished_callback: 完成回调，stop_flag: 停止标志，pause_flag: 暂停标志，stopped_callback: 停止回调。
         """
         round_number = 1
+        last_files_dir = None
         while True:
             random_suffix = ''.join(random.choices('0123456789ABCDEF', k=8))
             parent_dir_name = f"{round_number}_{random_suffix}"
             files_dir = os.path.join(self.target_dir, parent_dir_name)
+            # 清理上一次的目录（仅循环模式下）
+            if self.is_loop and last_files_dir and os.path.exists(last_files_dir):
+                try:
+                    shutil.rmtree(last_files_dir)
+                except Exception:
+                    pass
+            last_files_dir = files_dir
             os.makedirs(files_dir, exist_ok=True)
             files_created = 0
             total_size = 0
@@ -100,5 +109,19 @@ class FileGenerator:
                 break
             round_number += 1
             if progress_callback:
-                progress_callback('loop_wait', files_dir, files_created, self.max_files, total_size, round_number)
-            time.sleep(3)
+                progress_callback('loop_wait', files_dir, files_created, self.max_files, total_size, round_number-1)
+            # 循环等待3秒，期间可暂停和停止
+            waited = 0.0
+            while waited < 3.0:
+                if stop_flag and stop_flag():
+                    if stopped_callback:
+                        stopped_callback(files_dir, files_created, self.max_files, total_size, round_number)
+                    return
+                while pause_flag and pause_flag():
+                    if stop_flag and stop_flag():
+                        if stopped_callback:
+                            stopped_callback(files_dir, files_created, self.max_files, total_size, round_number)
+                        return
+                    time.sleep(0.1)
+                time.sleep(0.1)
+                waited += 0.1

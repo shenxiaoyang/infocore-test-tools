@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                            QButtonGroup, QComboBox, QMessageBox, QFrame, QGroupBox, QStyle, QProgressBar)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 import os
+import sys
 import hashlib
 import random
 import time
@@ -11,6 +12,8 @@ import logging
 import re
 from src.core.file_generator import FileGenerator
 from src.utils.common import format_size
+import yaml
+import winreg
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -50,75 +53,7 @@ class FileGeneratorWorker(QThread):
         self.chunk_size = 10 * 1024 * 1024
         logger.info(f"工作线程初始化完成，参数：目录={self.files_dir}, 大小范围={file_size_min}-{file_size_max}{size_unit}, 循环={is_loop}, 文件数={max_files}, 间隔={interval}")
         
-    def convert_to_bytes(self, size, unit):
-        """转换大小为字节"""
-        multipliers = {'KB': 1024, 'MB': 1024*1024, 'GB': 1024*1024*1024}
-        return int(size * multipliers[unit])
-        
-    def generate_file_content(self, file_path, total_size):
-        """分块生成并写入文件内容"""
-        hasher = hashlib.md5()
-        written_size = 0
-        
-        with open(file_path, 'wb') as f:
-            while written_size < total_size:
-                # 计算当前块的大小
-                remaining = total_size - written_size
-                current_chunk_size = min(self.chunk_size, remaining)
-                
-                # 生成当前块的内容
-                chunk = os.urandom(current_chunk_size)
-                hasher.update(chunk)
-                f.write(chunk)
-                
-                written_size += current_chunk_size
-                
-                # 检查暂停状态
-                if self.is_paused:
-                    while self.is_paused and self.is_running:
-                        time.sleep(0.1)
-                
-                # 检查停止状态
-                if not self.is_running:
-                    return None
-        
-        return hasher.hexdigest()
-
     def run(self):
-        def stop_flag():
-            return not self.is_running
-        def pause_flag():
-            return self.is_paused
-        def progress_callback(stage, files_dir, files_created, max_files, total_size, round_number):
-            if stage == 'start':
-                msg = f"开始{'新一轮' if self.is_loop else ''}文件生成\n文件生成目录：{files_dir}"
-            elif stage == 'progress':
-                percent = int((files_created / max_files) * 100) if max_files else 0
-                self.progress_value.emit(percent)
-                msg = (f"文件生成目录：{files_dir}\n"
-                       f"当前{'循环模式，' if self.is_loop else ''}已生成 {files_created} 个文件，共需要 {max_files} 个\n"
-                       f"已生成文件总大小：{format_size(total_size)}\n")
-            elif stage == 'finished':
-                msg = (f"{'本轮' if self.is_loop else ''}文件生成完成\n"
-                       f"文件生成目录：{files_dir}\n"
-                       f"共生成了 {files_created} 个文件\n"
-                       f"文件总大小：{format_size(total_size)}")
-            elif stage == 'loop_wait':
-                msg = "等待3秒后开始下一轮文件生成..."
-            else:
-                msg = ""
-            self.progress.emit(msg)
-        def finished_callback(files_dir, files_created, total_size):
-            self.progress.emit(f"文件生成完成，目录：{files_dir}，共{files_created}个文件，总大小{total_size}字节")
-            self.finished.emit()
-        def stopped_callback(files_dir, files_created, max_files, total_size, round_number):
-            # 保存最后状态
-            self.stopped_files_dir = files_dir
-            self.stopped_files_created = files_created
-            self.stopped_total_size = total_size
-            self.stopped_max_files = max_files
-            self.stopped_round_number = round_number
-            self.stopped.emit()
         generator = FileGenerator(
             self.target_dir,
             self.file_size_min,
@@ -128,8 +63,53 @@ class FileGeneratorWorker(QThread):
             self.is_loop,
             self.interval
         )
-        generator.generate_files(progress_callback=progress_callback, finished_callback=finished_callback, stop_flag=stop_flag, pause_flag=pause_flag, stopped_callback=stopped_callback)
-        
+        generator.generate_files(
+            progress_callback=self._progress_callback,
+            finished_callback=self._finished_callback,
+            stop_flag=self._stop_flag,
+            pause_flag=self._pause_flag,
+            stopped_callback=self._stopped_callback
+        )
+
+    def _stop_flag(self):
+        return not self.is_running
+
+    def _pause_flag(self):
+        return self.is_paused
+
+    def _progress_callback(self, stage, files_dir, files_created, max_files, total_size, round_number):
+        round_info = f"第{round_number}轮："
+        if stage == 'start':
+            msg = f"{round_info}开始{'新一轮' if self.is_loop else ''}文件生成\n文件生成目录：{files_dir}"
+        elif stage == 'progress':
+            percent = int((files_created / max_files) * 100) if max_files else 0
+            self.progress_value.emit(percent)
+            msg = (f"{round_info}文件生成目录：{files_dir}\n"
+                   f"当前{'循环模式，' if self.is_loop else ''}已生成 {files_created} 个文件，共需要 {max_files} 个\n"
+                   f"已生成文件总大小：{format_size(total_size)}\n")
+        elif stage == 'finished':
+            msg = (f"{round_info}{'本轮' if self.is_loop else ''}文件生成完成\n"
+                   f"文件生成目录：{files_dir}\n"
+                   f"共生成了 {files_created} 个文件\n"
+                   f"文件总大小：{format_size(total_size)}")
+        elif stage == 'loop_wait':
+            msg = f"{round_info}等待3秒后开始下一轮文件生成..."
+        else:
+            msg = ""
+        self.progress.emit(msg)
+
+    def _finished_callback(self, files_dir, files_created, total_size):
+        self.progress.emit(f"文件生成完成，目录：{files_dir}，共{files_created}个文件，总大小{total_size}字节")
+        self.finished.emit()
+
+    def _stopped_callback(self, files_dir, files_created, max_files, total_size, round_number):
+        self.stopped_files_dir = files_dir
+        self.stopped_files_created = files_created
+        self.stopped_total_size = total_size
+        self.stopped_max_files = max_files
+        self.stopped_round_number = round_number
+        self.stopped.emit()
+
     def stop(self):
         """停止生成"""
         self.is_running = False
@@ -318,6 +298,20 @@ class FileGeneratorUI(QWidget):
         
         # 定义按钮样式
         self.btn_style = {
+            'blue': """
+                QPushButton {
+                    background-color: #2196F3;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                }
+                QPushButton:hover {
+                    background-color: #1976D2;
+                }
+                QPushButton:pressed {
+                    background-color: #1565C0;
+                }
+            """,
             'green': """
                 QPushButton {
                     background-color: #4CAF50;
@@ -387,6 +381,20 @@ class FileGeneratorUI(QWidget):
         self.stop_btn.setStyleSheet(self.btn_style['gray'])
         self.stop_btn.setEnabled(False)
         
+        self.save_config_btn = QPushButton("保存配置")
+        self.save_config_btn.setFixedWidth(80)
+        self.save_config_btn.setStyleSheet(self.btn_style['blue'])
+        self.save_config_btn.clicked.connect(self.save_config)
+        
+        self.register_startup_btn = QPushButton()
+        self.register_startup_btn.setFixedWidth(100)
+        self.register_startup_btn.setStyleSheet(self.btn_style['blue'])
+        self.register_startup_btn.clicked.connect(self.register_startup)
+        
+        self.auto_login_btn = QPushButton()
+        self.auto_login_btn.setFixedWidth(100)
+        self.auto_login_btn.setStyleSheet(self.btn_style['blue'])
+        
         self.start_btn.clicked.connect(self.start_generation)
         self.pause_btn.clicked.connect(self.pause_generation)
         self.stop_btn.clicked.connect(self.stop_generation)
@@ -395,6 +403,9 @@ class FileGeneratorUI(QWidget):
         btn_layout.addWidget(self.start_btn)
         btn_layout.addWidget(self.pause_btn)
         btn_layout.addWidget(self.stop_btn)
+        btn_layout.addWidget(self.save_config_btn)
+        btn_layout.addWidget(self.register_startup_btn)
+        btn_layout.addWidget(self.auto_login_btn)
         btn_layout.addStretch()
         
         btn_group.setLayout(btn_layout)
@@ -437,6 +448,9 @@ class FileGeneratorUI(QWidget):
         
         status_group.setLayout(status_layout)
         layout.addWidget(status_group)
+        
+        self.check_startup_status()  # 初始化时检查
+        self.check_auto_login_status()  # 检查自动登录
         
     def select_directory(self):
         """选择目标目录"""
@@ -619,10 +633,11 @@ class FileGeneratorUI(QWidget):
             self.disable_inputs(False)
 
     def update_progress(self, message):
-        """更新进度信息"""
         logger.debug(f"进度更新: {message}")
         self.setWindowTitle('本地文件产生器')
-        
+        # 按钮状态控制
+        if "等待3秒后开始下一轮" in message or ("开始" in message and "文件生成目录" in message):
+            self.set_running_state()
         # 根据消息类型设置不同的样式
         if "错误" in message or "已存在" in message:
             self.update_error_status(message)
@@ -653,9 +668,10 @@ class FileGeneratorUI(QWidget):
         files_dir = getattr(self.worker, 'stopped_files_dir', None)
         files_created = getattr(self.worker, 'stopped_files_created', 0)
         total_size = getattr(self.worker, 'stopped_total_size', 0)
+        round_number = getattr(self.worker, 'stopped_round_number', 1)
         # 显示详细停止信息
         if files_dir:
-            msg = (f"文件生成已停止\n"
+            msg = (f"第{round_number}轮：文件生成已停止\n"
                    f"文件生成目录：{files_dir}\n"
                    f"共生成了 {files_created} 个文件\n"
                    f"文件总大小：{format_size(total_size)}（已停止）")
@@ -720,4 +736,170 @@ class FileGeneratorUI(QWidget):
         self.single_mode.setEnabled(not disabled)
         self.loop_mode.setEnabled(not disabled)
         self.limit_edit.setEnabled(not disabled)
-        self.interval_edit.setEnabled(not disabled) 
+        self.interval_edit.setEnabled(not disabled)
+
+    def save_config(self):
+        if not self.dir_edit.text():
+            QMessageBox.warning(self, "警告", "请先选择目标目录后再保存配置！")
+            return
+        # 转换为字节并保存原始单位
+        config = {
+            'target_dir': self.dir_edit.text(),
+            'file_size_min': self.size_min.text(),
+            'file_size_max': self.size_max.text(),
+            'file_size_min_unit': self.size_unit.currentText(),
+            'file_size_max_unit': self.size_unit2.currentText(),
+            'mode': '循环' if self.loop_mode.isChecked() else '单次',
+            'max_files': self.limit_edit.text(),
+            'interval': self.interval_edit.text(),
+        }
+        exe_dir = os.path.dirname(sys.argv[0])
+        file_path = os.path.join(exe_dir, "filegen_config.yaml")
+        with open(file_path, 'w', encoding='utf-8') as f:
+            yaml.safe_dump(config, f, allow_unicode=True)
+        QMessageBox.information(self, "保存成功", f"配置已保存到: {file_path}")
+
+    def check_startup_status(self):
+        try:
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                r"Software\\Microsoft\\Windows\\CurrentVersion\\Run"
+            )
+            value, _ = winreg.QueryValueEx(key, "EIMFilegen")
+            winreg.CloseKey(key)
+            self.register_startup_btn.setText("取消开机自启")
+            try:
+                self.register_startup_btn.clicked.disconnect()
+            except Exception:
+                pass
+            self.register_startup_btn.clicked.connect(self.unregister_startup)
+        except FileNotFoundError:
+            self.register_startup_btn.setText("注册自启")
+            try:
+                self.register_startup_btn.clicked.disconnect()
+            except Exception:
+                pass
+            self.register_startup_btn.clicked.connect(self.register_startup)
+        except Exception:
+            self.register_startup_btn.setText("注册自启")
+            try:
+                self.register_startup_btn.clicked.disconnect()
+            except Exception:
+                pass
+            self.register_startup_btn.clicked.connect(self.register_startup)
+
+    def register_startup(self):
+        exe_path = os.path.abspath(sys.argv[0])
+        try:
+            key = winreg.CreateKey(
+                winreg.HKEY_CURRENT_USER,
+                r"Software\\Microsoft\\Windows\\CurrentVersion\\Run"
+            )
+            winreg.SetValueEx(key, "EIMFilegen", 0, winreg.REG_SZ, exe_path)
+            winreg.CloseKey(key)
+            QMessageBox.information(self, "注册成功", f"已注册开机自启：{exe_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "注册失败", f"注册开机自启失败：{str(e)}")
+        self.check_startup_status()
+
+    def unregister_startup(self):
+        try:
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                r"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                0, winreg.KEY_SET_VALUE
+            )
+            winreg.DeleteValue(key, "EIMFilegen")
+            winreg.CloseKey(key)
+            QMessageBox.information(self, "取消成功", "已取消开机自启。")
+        except FileNotFoundError:
+            QMessageBox.information(self, "无需操作", "未设置开机自启。")
+        except Exception as e:
+            QMessageBox.critical(self, "取消失败", f"取消开机自启失败：{str(e)}")
+        self.check_startup_status()
+
+    def check_auto_login_status(self):
+        try:
+            key = winreg.OpenKey(
+                winreg.HKEY_LOCAL_MACHINE,
+                r"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon"
+            )
+            value, _ = winreg.QueryValueEx(key, "AutoAdminLogon")
+            winreg.CloseKey(key)
+            if value == '1':
+                self.auto_login_btn.setText("取消自动登录")
+                try:
+                    self.auto_login_btn.clicked.disconnect()
+                except Exception:
+                    pass
+                self.auto_login_btn.clicked.connect(self.unset_auto_login)
+                return
+        except Exception:
+            pass
+        self.auto_login_btn.setText("系统自动登录")
+        try:
+            self.auto_login_btn.clicked.disconnect()
+        except Exception:
+            pass
+        self.auto_login_btn.clicked.connect(self.set_auto_login)
+
+    def set_auto_login(self):
+        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QHBoxLayout, QPushButton
+        dialog = QDialog(self)
+        dialog.setWindowTitle("系统自动登录配置")
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("请输入要自动登录的用户名和密码："))
+        user_edit = QLineEdit()
+        user_edit.setPlaceholderText("用户名")
+        pwd_edit = QLineEdit()
+        pwd_edit.setPlaceholderText("密码")
+        pwd_edit.setEchoMode(QLineEdit.Password)
+        layout.addWidget(user_edit)
+        layout.addWidget(pwd_edit)
+        btn_layout = QHBoxLayout()
+        ok_btn = QPushButton("确定")
+        cancel_btn = QPushButton("取消")
+        btn_layout.addWidget(ok_btn)
+        btn_layout.addWidget(cancel_btn)
+        layout.addLayout(btn_layout)
+        dialog.setLayout(layout)
+        ok_btn.clicked.connect(dialog.accept)
+        cancel_btn.clicked.connect(dialog.reject)
+        if dialog.exec_() == QDialog.Accepted:
+            username = user_edit.text().strip()
+            password = pwd_edit.text().strip()
+            if not username or not password:
+                QMessageBox.warning(self, "警告", "用户名和密码不能为空！")
+                return
+            try:
+                key = winreg.OpenKey(
+                    winreg.HKEY_LOCAL_MACHINE,
+                    r"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon",
+                    0, winreg.KEY_SET_VALUE
+                )
+                winreg.SetValueEx(key, "AutoAdminLogon", 0, winreg.REG_SZ, '1')
+                winreg.SetValueEx(key, "DefaultUserName", 0, winreg.REG_SZ, username)
+                winreg.SetValueEx(key, "DefaultPassword", 0, winreg.REG_SZ, password)
+                winreg.CloseKey(key)
+                QMessageBox.information(self, "设置成功", "系统自动登录已配置！")
+            except Exception as e:
+                QMessageBox.critical(self, "设置失败", f"自动登录配置失败：{str(e)}\n请尝试以管理员身份运行程序。")
+        self.check_auto_login_status()
+
+    def unset_auto_login(self):
+        try:
+            key = winreg.OpenKey(
+                winreg.HKEY_LOCAL_MACHINE,
+                r"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon",
+                0, winreg.KEY_SET_VALUE
+            )
+            winreg.DeleteValue(key, "AutoAdminLogon")
+            winreg.DeleteValue(key, "DefaultUserName")
+            winreg.DeleteValue(key, "DefaultPassword")
+            winreg.CloseKey(key)
+            QMessageBox.information(self, "取消成功", "已取消系统自动登录。")
+        except FileNotFoundError:
+            QMessageBox.information(self, "无需操作", "未设置系统自动登录。")
+        except Exception as e:
+            QMessageBox.critical(self, "取消失败", f"取消自动登录失败：{str(e)}\n请尝试以管理员身份运行程序。")
+        self.check_auto_login_status()

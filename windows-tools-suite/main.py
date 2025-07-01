@@ -8,6 +8,8 @@ from src.ui.md5_calculator_ui import MD5CalculatorUI
 from src.ui.file_compare_ui import FileCompareUI
 from src.ui.file_generator_ui import FileGeneratorUI
 from src.ui.file_verify_ui import FileVerifyUI
+import yaml
+import threading
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -308,7 +310,71 @@ class MainWindow(QMainWindow):
         
         # 减小底部弹性空间
         layout.addStretch(0)
+        
+        self._check_and_auto_run_filegen()
     
+    def _check_and_auto_run_filegen(self):
+        exe_dir = os.path.dirname(sys.argv[0])
+        config_path = os.path.join(exe_dir, "filegen_config.yaml")
+        if os.path.exists(config_path):
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+            self._show_filegen_auto_dialog(config)
+
+    def _show_filegen_auto_dialog(self, config):
+        from PyQt5.QtWidgets import QMessageBox, QDialog, QVBoxLayout, QLabel, QPushButton, QHBoxLayout
+        from PyQt5.QtCore import QTimer
+        dialog = QDialog(self)
+        dialog.setWindowTitle("自动恢复文件产生器")
+        layout = QVBoxLayout()
+        label = QLabel("检测到上次保存的文件产生器配置，是否自动恢复并开始执行？\n5秒后将自动开始。\n\n配置文件路径: filegen_config.yaml")
+        layout.addWidget(label)
+        btn_layout = QHBoxLayout()
+        ok_btn = QPushButton("确定")
+        cancel_btn = QPushButton("取消")
+        btn_layout.addWidget(ok_btn)
+        btn_layout.addWidget(cancel_btn)
+        layout.addLayout(btn_layout)
+        dialog.setLayout(layout)
+        timer = QTimer(dialog)
+        timer.setInterval(1000)
+        self._countdown = 5
+        def update_label():
+            self._countdown -= 1
+            label.setText(f"检测到上次保存的文件产生器配置，是否自动恢复并开始执行？\n{self._countdown}秒后将自动开始。\n\n配置文件路径: filegen_config.yaml")
+            if self._countdown <= 0:
+                timer.stop()
+                dialog.accept()
+        timer.timeout.connect(update_label)
+        timer.start()
+        ok_btn.clicked.connect(lambda: (timer.stop(), dialog.accept()))
+        cancel_btn.clicked.connect(lambda: (timer.stop(), dialog.reject()))
+        if dialog.exec_() == QDialog.Accepted:
+            self._auto_open_filegen_with_config(config)
+
+    def _auto_open_filegen_with_config(self, config):
+        # 打开文件产生器窗口并自动填充参数并开始
+        if self.file_generator_window is None or not self.file_generator_window.isVisible():
+            self.file_generator_window = FileGeneratorUI()
+        ui = self.file_generator_window
+        # 设置参数
+        ui.dir_edit.setText(config.get('target_dir', ''))
+        ui.size_min.setText(str(config.get('file_size_min', '')))
+        ui.size_max.setText(str(config.get('file_size_max', '')))
+        ui.size_unit.setCurrentText(config.get('file_size_min_unit', 'KB'))
+        ui.size_unit2.setCurrentText(config.get('file_size_max_unit', 'KB'))
+        mode = config.get('mode', '单次')
+        if mode == '循环':
+            ui.loop_mode.setChecked(True)
+        else:
+            ui.single_mode.setChecked(True)
+        ui.limit_edit.setText(str(config.get('max_files', '')))
+        ui.interval_edit.setText(str(config.get('interval', '')))
+        # 强制置顶再恢复
+        ui.show()
+        # 自动开始
+        threading.Timer(0.5, ui.start_generation).start()
+
     def open_md5_calculator(self):
         """打开MD5计算器窗口（单例模式）"""
         if self.md5_calculator_window is None or not self.md5_calculator_window.isVisible():

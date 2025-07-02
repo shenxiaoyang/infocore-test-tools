@@ -3,13 +3,12 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 import os
 import hashlib
-import logging
+from ..utils.logger import get_logger
 from datetime import datetime
 import sys
 
 # 配置日志
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class FileVerifyWorker(QThread):
     """文件校验工作线程"""
@@ -426,6 +425,7 @@ class FileVerifyUI(QWidget):
 
     def start_verify(self):
         """开始校验"""
+        logger.info("点击了开始校验按钮")
         if not self.validate_inputs():
             return
             
@@ -478,6 +478,7 @@ class FileVerifyUI(QWidget):
                 
     def stop_verify(self):
         """停止校验"""
+        logger.info("点击了停止校验按钮")
         if self.worker and self.worker.isRunning():
             self.worker.stop()
             self.set_initial_state()
@@ -501,4 +502,8 @@ class FileVerifyUI(QWidget):
     def verify_finished(self):
         """校验完成的处理"""
         self.set_initial_state()
-        self.dir_edit.setEnabled(True) 
+        self.dir_edit.setEnabled(True)
+
+    def add_directory(self):
+        logger.info("点击了添加目录按钮")
+        # ... existing code ... 

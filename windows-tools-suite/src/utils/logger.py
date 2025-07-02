@@ -4,60 +4,52 @@ import sys
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 
-class Logger:
-    def __init__(self, name="MD5Calculator"):
-        self.logger = logging.getLogger(name)
-        self.logger.setLevel(logging.INFO)
-        
-        # 使用exe所在目录作为基准目录
+def get_logger(name="infocore"):
+    """
+    获取一个全局唯一的logger，防止重复添加handler。
+    :param name: logger名称，建议用模块名或功能名
+    :return: logger对象
+    """
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
+
+    # 只在没有handler时添加，防止重复
+    if not logger.handlers:
+        # 日志目录
         base_dir = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
-        
-        # 创建logs目录
         logs_dir = os.path.join(base_dir, "logs")
-        if not os.path.exists(logs_dir):
-            os.makedirs(logs_dir)
-            
-        # 创建output目录
-        output_dir = os.path.join(base_dir, "output")
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-        
-        # 设置日志文件名（使用当前日期）
+        os.makedirs(logs_dir, exist_ok=True)
         log_file = os.path.join(logs_dir, f"{datetime.now().strftime('%Y%m%d')}.log")
-        
-        # 创建文件处理器，使用 RotatingFileHandler
+
+        # 文件handler
         file_handler = RotatingFileHandler(
             log_file,
-            maxBytes=10*1024*1024,  # 10MB
-            backupCount=5,          # 保留5个备份
+            maxBytes=10*1024*1024,
+            backupCount=5,
             encoding='utf-8',
-            delay=True              # 延迟创建文件，直到第一次写入
+            delay=True
         )
         file_handler.setLevel(logging.INFO)
-        
-        # 创建控制台处理器
+
+        # 控制台handler
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.INFO)
-        
-        # 设置日志格式
+
+        # 格式
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         file_handler.setFormatter(formatter)
         console_handler.setFormatter(formatter)
-        
-        # 添加处理器
-        self.logger.addHandler(file_handler)
-        self.logger.addHandler(console_handler)
-    
-    def info(self, message):
-        if self.logger.isEnabledFor(logging.INFO):
-            self.logger.info(message)
-    
-    def error(self, message):
-        self.logger.error(message)
-    
-    def warning(self, message):
-        self.logger.warning(message)
-    
-    def debug(self, message):
-        if self.logger.isEnabledFor(logging.DEBUG):
-            self.logger.debug(message) 
+
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
+
+    return logger
+
+# 兼容旧用法
+class Logger:
+    def __init__(self, name="infocore"):
+        self._logger = get_logger(name)
+    def info(self, msg): self._logger.info(msg)
+    def error(self, msg): self._logger.error(msg)
+    def warning(self, msg): self._logger.warning(msg)
+    def debug(self, msg): self._logger.debug(msg) 

@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                            QProgressDialog, QCheckBox)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt5.QtGui import QColor, QTextCharFormat, QSyntaxHighlighter
-from ..utils.logger import Logger
+from ..utils.logger import get_logger
 from PyQt5.QtWidgets import QApplication
 from difflib import SequenceMatcher
 import os
@@ -18,7 +18,7 @@ class CompareWorker(QThread):
         super().__init__()
         self.left_file = left_file
         self.right_file = right_file
-        self.logger = Logger("CompareWorker")
+        self.logger = get_logger(__name__)
     
     def run(self):
         try:
@@ -123,6 +123,7 @@ class CompareWorker(QThread):
 class DiffHighlighter(QSyntaxHighlighter):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.logger = get_logger(__name__)
         # 不同类型差异的格式
         self.formats = {
             "≠": self._create_format("#ffecec"),  # 修改的行（浅红色）
@@ -132,7 +133,6 @@ class DiffHighlighter(QSyntaxHighlighter):
         self.diff_types = {}  # {行号: 差异类型}
         self.batch_size = 5000
         self.current_block = 0
-        self.logger = Logger("DiffHighlighter")
         self.is_highlighting = False
         self._document = None
     
@@ -248,7 +248,7 @@ class FileCompareUI(QWidget):
                 color: #2f3640;
             }
         """)
-        self.logger = Logger("FileCompareUI")
+        self.logger = get_logger(__name__)
         self.worker = None
         self.progress_dialog = None
         self.sync_scroll = True  # 添加同步滚动标志

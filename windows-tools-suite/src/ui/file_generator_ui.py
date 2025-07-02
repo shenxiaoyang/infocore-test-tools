@@ -8,7 +8,7 @@ import hashlib
 import random
 import time
 import shutil
-import logging
+from ..utils.logger import get_logger
 import re
 from src.core.file_generator import FileGenerator
 from src.utils.common import format_size
@@ -16,8 +16,7 @@ import yaml
 import winreg
 
 # 配置日志
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class FileGeneratorWorker(QThread):
     """文件生成工作线程，调用核心逻辑类FileGenerator"""
@@ -546,8 +545,7 @@ class FileGeneratorUI(QWidget):
         self.stop_btn.setEnabled(False)
 
     def start_generation(self):
-        """开始生成文件"""
-        logger.info("点击开始按钮")
+        logger.info("点击了开始生成按钮")
         
         if not self.validate_inputs():
             return
@@ -607,7 +605,7 @@ class FileGeneratorUI(QWidget):
             QMessageBox.critical(self, "错误", error_msg)
 
     def pause_generation(self):
-        """暂停生成"""
+        logger.info("点击了暂停/继续按钮")
         if self.worker and self.worker.isRunning():
             if self.worker.is_paused:
                 logger.info("继续生成")
@@ -622,7 +620,7 @@ class FileGeneratorUI(QWidget):
                 self.status_label.setText(current_status + "[已暂停]")
 
     def stop_generation(self):
-        """停止生成"""
+        logger.info("点击了停止按钮")
         if self.worker and self.worker.isRunning():
             logger.info("停止生成")
             self.worker.stop()
@@ -705,7 +703,6 @@ class FileGeneratorUI(QWidget):
 
     def generation_finished(self):
         """生成完成的处理"""
-        logger.info("生成完成")
         self.set_initial_state()
         self.disable_inputs(False)
         self.setWindowTitle('本地文件产生器')
@@ -767,12 +764,21 @@ class FileGeneratorUI(QWidget):
             )
             value, _ = winreg.QueryValueEx(key, "EIMFilegen")
             winreg.CloseKey(key)
-            self.register_startup_btn.setText("取消开机自启")
-            try:
-                self.register_startup_btn.clicked.disconnect()
-            except Exception:
-                pass
-            self.register_startup_btn.clicked.connect(self.unregister_startup)
+            # 检查是否带autorun参数
+            if "autorun" in value:
+                self.register_startup_btn.setText("取消开机自启")
+                try:
+                    self.register_startup_btn.clicked.disconnect()
+                except Exception:
+                    pass
+                self.register_startup_btn.clicked.connect(self.unregister_startup)
+            else:
+                self.register_startup_btn.setText("注册自启")
+                try:
+                    self.register_startup_btn.clicked.disconnect()
+                except Exception:
+                    pass
+                self.register_startup_btn.clicked.connect(self.register_startup)
         except FileNotFoundError:
             self.register_startup_btn.setText("注册自启")
             try:
@@ -790,14 +796,15 @@ class FileGeneratorUI(QWidget):
 
     def register_startup(self):
         exe_path = os.path.abspath(sys.argv[0])
+        autorun_cmd = f'"{exe_path}" autorun'  # 加autorun参数
         try:
             key = winreg.CreateKey(
                 winreg.HKEY_CURRENT_USER,
                 r"Software\\Microsoft\\Windows\\CurrentVersion\\Run"
             )
-            winreg.SetValueEx(key, "EIMFilegen", 0, winreg.REG_SZ, exe_path)
+            winreg.SetValueEx(key, "EIMFilegen", 0, winreg.REG_SZ, autorun_cmd)
             winreg.CloseKey(key)
-            QMessageBox.information(self, "注册成功", f"已注册开机自启：{exe_path}")
+            QMessageBox.information(self, "注册成功", f"已注册开机自启：{autorun_cmd}")
         except Exception as e:
             QMessageBox.critical(self, "注册失败", f"注册开机自启失败：{str(e)}")
         self.check_startup_status()

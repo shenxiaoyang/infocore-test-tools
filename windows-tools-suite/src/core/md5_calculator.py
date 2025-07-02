@@ -1,13 +1,13 @@
 import os
 import hashlib
 import sys
-from ..utils.logger import Logger
+from ..utils.logger import get_logger
 import time
 
 class MD5Calculator:
     """MD5计算器类"""
     def __init__(self):
-        self.logger = Logger("MD5Calculator")
+        self.logger = get_logger(__name__)
         self.default_directory = r'C:\Windows'
         self.default_extensions = [
             '.exe', '.dll', '.sys',
@@ -129,15 +129,19 @@ class MD5Calculator:
         """保存最终的record记录"""
         try:
             if not self.output_file:
+                self.logger.error("没有输出文件")
                 return
             
-            # 保存总MD5值到record.log
-            record_file = os.path.join("output", "record.log")
+            # 统一用prepare_output_file的output目录
+            base_dir = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
+            output_dir = os.path.join(base_dir, "output")
+            os.makedirs(output_dir, exist_ok=True)
+            record_file = os.path.join(output_dir, "record.log")
+            
             with open(record_file, 'a', encoding='utf-8') as f:
                 f.write(f"{self.output_file}\t{self.total_md5.hexdigest()}\n")
             
-            self.logger.info(f"结果已保存到: {self.output_file}")
-            return self.output_file
+            self.logger.info(f"结果已保存到: {record_file}")
         except Exception as e:
             self.logger.error(f"保存record记录失败: {str(e)}")
             raise
@@ -174,7 +178,7 @@ class MD5Calculator:
             for file in files:
                 file_path = os.path.join(root, file)
                 total_scanned += 1
-                self.logger.info(file_path)
+                self.logger.debug(f"扫描文件: {file_path}")
                 
                 try:
                     file_size = os.path.getsize(file_path)
@@ -304,7 +308,7 @@ class MD5Calculator:
             self.write_batch_results(results)
         
         # 保存record记录
-        output_file = self.save_final_record()
+        self.save_final_record()
         
         elapsed_time = time.time() - start_time
         final_msg = (

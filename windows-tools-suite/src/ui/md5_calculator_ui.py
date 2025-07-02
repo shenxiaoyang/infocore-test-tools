@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QFont
 from ..core.md5_calculator import MD5Calculator
-from ..utils.logger import Logger
+from ..utils.logger import get_logger
 import os
 import traceback  # 添加 traceback 模块
 
@@ -23,7 +23,7 @@ class MD5CalculatorWorker(QThread):
         self.exclude_hours = exclude_hours
         self.exclude_keywords = exclude_keywords
         self.time_type = time_type
-        self.logger = Logger("MD5CalculatorWorker")
+        self.logger = get_logger(__name__)
         # 设置进度回调
         self.calculator.set_progress_callback(self.update_progress)
         self.is_running = True
@@ -72,7 +72,7 @@ class MD5CalculatorUI(QWidget):
     def __init__(self):
         super().__init__()
         self.calculator = MD5Calculator()
-        self.logger = Logger("MD5CalculatorUI")
+        self.logger = get_logger(__name__)
         self.default_exclude_keywords = [
             "balloon.sys", "blnsvr.exe", "netkvm.sys", "vioser.sys", 
             "viostor.sys", "E1G6032E.sys", "Wdfcoinstaller01005.dll",

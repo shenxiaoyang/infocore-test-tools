@@ -10,6 +10,10 @@ from src.ui.file_generator_ui import FileGeneratorUI
 from src.ui.file_verify_ui import FileVerifyUI
 import yaml
 import threading
+import winreg
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -22,6 +26,7 @@ class MainWindow(QMainWindow):
         self.file_compare_window = None
         self.file_generator_window = None
         self.file_verify_window = None
+        self.logger = get_logger(__name__)
         
         self.setWindowTitle("Windows工具集")
         self.setMinimumSize(800, 600)
@@ -253,7 +258,7 @@ class MainWindow(QMainWindow):
                 background-color: #dfe4ea;
             }
         """)
-        verify_btn.clicked.connect(self.show_verify_message)
+        verify_btn.clicked.connect(self.open_file_verify)
         # 添加鼠标悬停事件
         verify_btn.enterEvent = lambda e: self.update_subtitle("文件校验工具用于验证本地文件产生器产生的文件的完整性")
         verify_btn.leaveEvent = lambda e: self.update_subtitle("便捷实用的Windows工具箱")
@@ -317,6 +322,24 @@ class MainWindow(QMainWindow):
         exe_dir = os.path.dirname(sys.argv[0])
         config_path = os.path.join(exe_dir, "filegen_config.yaml")
         if os.path.exists(config_path):
+            # 如果是autorun, 需要检查客户端是否已保护，未保护的情况系下直接返回不自动执行文件产生器
+            if is_autorun():
+                # 检查Protected值
+                try:
+                    key = winreg.OpenKey(
+                        winreg.HKEY_LOCAL_MACHINE,
+                        r"SYSTEM\\CurrentControlSet\\Services\\OsnCliService\\Parameters"
+                    )
+                    protected, _ = winreg.QueryValueEx(key, "Protected")
+                    winreg.CloseKey(key)
+                    if str(protected).lower() == "false":
+                        self.logger.info("Protected值为false，不执行文件产生器")
+                        return
+                    self.logger.info("Protected值为true，继续执行")
+                except Exception:
+                    self.logger.error("Protected值不存在，继续执行")
+                    pass  # 没有该项默认继续
+            # 继续原有逻辑
             with open(config_path, 'r', encoding='utf-8') as f:
                 config = yaml.safe_load(f)
             self._show_filegen_auto_dialog(config)
@@ -430,10 +453,6 @@ class MainWindow(QMainWindow):
             self.file_verify_window.activateWindow()
             self.file_verify_window.raise_()
 
-    def show_verify_message(self):
-        """显示文件校验功能开发中的提示"""
-        self.open_file_verify()
-
     def show_sector_message(self):
         # 打开扇区查看工具 diskprobe.exe
         exe_path = os.path.join(os.path.dirname(__file__), 'src', 'resources', 'diskprobe', 'diskprobe.exe')
@@ -446,10 +465,18 @@ class MainWindow(QMainWindow):
         """更新副标题文本"""
         self.subtitle.setText(text)
 
+def is_autorun():
+    return "autorun" in sys.argv
+
 def main():
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
+    if is_autorun():
+        logger.info("以自启动方式运行（带autorun参数）")
+        # 可在此处添加自动恢复、自动弹窗等逻辑
+    else:
+        logger.info("以手动方式运行")
     sys.exit(app.exec_())
 
 if __name__ == "__main__":

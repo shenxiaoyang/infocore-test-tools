@@ -22,7 +22,9 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=[
+        'tkinter', 'unittest', 'test', 'pydoc', 'doctest', 'email', 'html', 'http', 'xml', 'xmlrpc', 'sqlite3', 'asyncio', 'distutils', 'setuptools'
+    ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
@@ -38,7 +40,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='Windows工具集-v1.0.28',
+    name='Windows工具集-v1.0.39',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

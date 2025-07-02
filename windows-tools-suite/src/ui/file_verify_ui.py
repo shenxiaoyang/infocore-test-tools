@@ -50,9 +50,11 @@ class FileVerifyWorker(QThread):
                         self.total_files += 1
             
             if self.total_files == 0:
+                logger.info("所选目录中无可校验的.md5file文件")
                 self.progress.emit("所选目录中无可校验的.md5file文件")
                 return
-                
+            
+            logger.info(f"找到 {self.total_files} 个.md5file文件，开始校验...")
             self.progress.emit(f"找到 {self.total_files} 个.md5file文件，开始校验...")
             
             # 创建output目录（在exe所在目录下）
@@ -503,7 +505,3 @@ class FileVerifyUI(QWidget):
         """校验完成的处理"""
         self.set_initial_state()
         self.dir_edit.setEnabled(True)
-
-    def add_directory(self):
-        logger.info("点击了添加目录按钮")
-        # ... existing code ... 

@@ -296,7 +296,7 @@ class MD5Calculator:
         if skipped_files:
             os.makedirs("output", exist_ok=True)  # 确保output目录存在
             skip_file = os.path.join("output", f"skipped-{int(time.time())}.log")
-            with open(skip_file, 'w', encoding='utf-8') as f:
+            with open(skip_file, 'w', encoding='utf-8', errors='ignore') as f:
                 f.write("以下文件因被排除而跳过：\n")
                 f.write(f"总计跳过文件数：{len(skipped_files)}\n\n")
                 for file_path, reason in sorted(skipped_files):

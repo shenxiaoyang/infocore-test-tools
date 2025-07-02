@@ -1,0 +1,8 @@
+file_size_max: '10'
+file_size_max_unit: KB
+file_size_min: '1'
+file_size_min_unit: KB
+interval: '0.01'
+max_files: '1000'
+mode: 单次
+target_dir: C:/Users/Administrator/Desktop/新建文件夹

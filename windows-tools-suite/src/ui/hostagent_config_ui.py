@@ -17,7 +17,7 @@ class HostAgentConfigDialog(QDialog):
     def init_ui(self):
         layout = QVBoxLayout()
         # 未来可扩展多个模块，每个模块一个QGroupBox
-        eim_group = QGroupBox("EIMVssProvider")
+        eim_group = QGroupBox("EIMVssProvider日志配置")
         eim_layout = QHBoxLayout()
         # 目前只有一个操作按钮
         self.log_btn = QPushButton()

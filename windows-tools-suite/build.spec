@@ -17,7 +17,8 @@ a = Analysis(
     ],
     hiddenimports=[
         'PyQt5',
-        'concurrent.futures'
+        'concurrent.futures',
+        'yaml'
     ],
     hookspath=[],
     hooksconfig={},
@@ -40,7 +41,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='Windows工具集-v1.0.39',
+    name='Windows工具集-v1.0.41',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

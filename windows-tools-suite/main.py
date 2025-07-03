@@ -235,7 +235,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(tools_container)
         
         # 添加底部信息
-        footer = QLabel("© 2024 Windows工具集")
+        footer = QLabel("© InfoCore 2025 测试部")
         footer.setAlignment(Qt.AlignCenter)
         footer.setStyleSheet("""
             color: #7f8fa6;

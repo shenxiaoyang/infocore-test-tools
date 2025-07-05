@@ -30,6 +30,7 @@ class MainWindow(QMainWindow):
         
         self.setWindowTitle("Windows工具集")
         self.setMinimumSize(400, 400)
+        self.setAcceptDrops(True)
         self.setStyleSheet("""
             QMainWindow {
                 background-color: #f5f6fa;
@@ -175,7 +176,17 @@ class MainWindow(QMainWindow):
         system_disk_btn.clicked.connect(self.open_system_disk_calculator)
         tools_grid.addWidget(system_disk_btn, 0, 1)
 
-        # 第二行
+        # 第二行：MD5计算器
+        md5calc_btn = QPushButton("MD5计算器")
+        md5calc_btn.setMinimumHeight(30)
+        md5calc_btn.setStyleSheet(self.btn_style)
+        md5calc_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        md5calc_btn.clicked.connect(self.open_md5_calc_dialog)
+        md5calc_btn.enterEvent = lambda e: self.update_subtitle("文件MD5/SHA哈希计算与校验")
+        md5calc_btn.leaveEvent = lambda e: self.update_subtitle("便捷实用的Windows工具箱")
+        tools_grid.addWidget(md5calc_btn, 1, 0, 1, 2)
+
+        # 第三行：文件对比
         compare_btn = QPushButton("文件对比")
         compare_btn.setMinimumHeight(30)
         compare_btn.setStyleSheet(self.btn_style)
@@ -183,9 +194,9 @@ class MainWindow(QMainWindow):
         compare_btn.clicked.connect(self.open_file_compare)
         compare_btn.enterEvent = lambda e: self.update_subtitle("文件对比工具用于对比两个文件的内容差异")
         compare_btn.leaveEvent = lambda e: self.update_subtitle("便捷实用的Windows工具箱")
-        tools_grid.addWidget(compare_btn, 1, 0, 1, 2)
+        tools_grid.addWidget(compare_btn, 2, 0, 1, 2)
 
-        # 第三行
+        # 第四行
         generator_btn = QPushButton("本地文件产生器")
         generator_btn.setMinimumHeight(30)
         generator_btn.setStyleSheet(self.btn_style)
@@ -193,7 +204,7 @@ class MainWindow(QMainWindow):
         generator_btn.clicked.connect(self.open_file_generator)
         generator_btn.enterEvent = lambda e: self.update_subtitle("本地文件产生器用于生成指定大小和数量的测试文件")
         generator_btn.leaveEvent = lambda e: self.update_subtitle("便捷实用的Windows工具箱")
-        tools_grid.addWidget(generator_btn, 2, 0)
+        tools_grid.addWidget(generator_btn, 3, 0)
 
         verify_btn = QPushButton("文件校验")
         verify_btn.setMinimumHeight(30)
@@ -202,19 +213,9 @@ class MainWindow(QMainWindow):
         verify_btn.clicked.connect(self.open_file_verify)
         verify_btn.enterEvent = lambda e: self.update_subtitle("文件校验工具用于验证本地文件产生器产生的文件的完整性")
         verify_btn.leaveEvent = lambda e: self.update_subtitle("便捷实用的Windows工具箱")
-        tools_grid.addWidget(verify_btn, 2, 1)
+        tools_grid.addWidget(verify_btn, 3, 1)
 
-        # 第四行
-        sector_btn = QPushButton("扇区查看工具diskprobe.exe")
-        sector_btn.setMinimumHeight(30)
-        sector_btn.setStyleSheet(self.btn_style)
-        sector_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        sector_btn.clicked.connect(self.show_sector_message)
-        sector_btn.enterEvent = lambda e: self.update_subtitle("扇区查看工具用于查看磁盘扇区内容")
-        sector_btn.leaveEvent = lambda e: self.update_subtitle("便捷实用的Windows工具箱")
-        tools_grid.addWidget(sector_btn, 3, 0, 1, 2)
-
-        # 第五行
+        # HostAgent配置按钮
         hostagent_btn = QPushButton("HostAgent配置")
         hostagent_btn.setMinimumHeight(30)
         hostagent_btn.setStyleSheet(self.btn_style)
@@ -223,6 +224,16 @@ class MainWindow(QMainWindow):
         hostagent_btn.enterEvent = lambda e: self.update_subtitle("HostAgent相关模块配置和操作")
         hostagent_btn.leaveEvent = lambda e: self.update_subtitle("便捷实用的Windows工具箱")
         tools_grid.addWidget(hostagent_btn, 4, 0, 1, 2)
+
+        # 最后一行：第三方工具按钮
+        thirdparty_btn = QPushButton("第三方工具")
+        thirdparty_btn.setMinimumHeight(30)
+        thirdparty_btn.setStyleSheet(self.btn_style)
+        thirdparty_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        thirdparty_btn.clicked.connect(self.open_tools_dialog)
+        thirdparty_btn.enterEvent = lambda e: self.update_subtitle("打开第三方磁盘工具")
+        thirdparty_btn.leaveEvent = lambda e: self.update_subtitle("便捷实用的Windows工具箱")
+        tools_grid.addWidget(thirdparty_btn, 5, 0, 1, 2)
 
         # 用QWidget包裹GridLayout，便于加到主layout
         tools_widget = QWidget()
@@ -384,17 +395,19 @@ class MainWindow(QMainWindow):
             self.file_verify_window.activateWindow()
             self.file_verify_window.raise_()
 
-    def show_sector_message(self):
-        # 打开扇区查看工具 diskprobe.exe
-        exe_path = os.path.join(os.path.dirname(__file__), 'src', 'resources', 'diskprobe', 'diskprobe.exe')
-        try:
-            os.startfile(exe_path)
-        except Exception as e:
-            QMessageBox.warning(self, "扇区查看", f"无法打开扇区查看工具：{str(e)}")
+    def open_tools_dialog(self):
+        from src.ui.tools_ui import ToolsDialog
+        dialog = ToolsDialog(self)
+        dialog.exec_()
 
     def open_hostagent_config(self):
         from src.ui.hostagent_config_ui import HostAgentConfigDialog
         dialog = HostAgentConfigDialog(self)
+        dialog.exec_()
+
+    def open_md5_calc_dialog(self):
+        from src.ui.file_hash_calc_ui import FileHashCalcDialog
+        dialog = FileHashCalcDialog(self)
         dialog.exec_()
 
     def update_subtitle(self, text):

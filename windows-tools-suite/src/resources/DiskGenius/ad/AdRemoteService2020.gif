@@ -1,0 +1,303 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3c.org/TR/1999/REC-html401-19991224/loose.dtd">
+<html>
+<head>
+<meta http-equiv=Content-Type content="text/html; charset=utf-8">
+<title>DiskGenius-您访问的页面不存在或已删除</title>
+<link rel="shortcut icon" href="/favicon.ico" />
+
+<link href="/public/css/style.css" type="text/css" rel="stylesheet" />
+<script type="text/javascript" src="/public/js/jquery.min.js"></script>
+<script type="text/javascript" src="/public/js/menu.js" id="page-home"></script>
+<style type="text/css">
+.error p {
+	font-size:15px;
+	color:#198DB3;
+	text-align:left;
+}
+.error p a {
+	font-size:14px;
+	color:#777;
+	font-weight:bold;
+}
+.error p a:hover {
+	color:#09C;
+}
+</style>
+</head>
+<body>
+
+	
+
+<script type="text/javascript" src="/public/js/jquery.min.js"></script>
+<div class="head">
+        <div class="wrap">
+            <div class="leftbox">
+                <a href="/" class="coa-top">
+                    <img src="/public/images/logo-diskgenius.png" class="img" alt="DiskGenius">
+                </a>
+                <div class="hd-nav">
+                    <ul>
+                        <li class=" li1 cur">
+                            <a href="/">首页</a>
+                        </li>
+                        <li class="li2 has">
+                            <span class="arrow"></span>
+                            <a href="#">功能</a>
+                            <div class="drop">
+                                <a href="/data-recovery.php" class="lk ico1 clearfix">
+                                    <div class="fl">
+                                        <h5>数据恢复</h5>
+                                        <p>功能丰富，支持多种情况</p>
+                                    </div>
+                                </a>
+                                <a href="/partition-management.php" class="lk ico2 clearfix">
+                                    <div class="fl">
+                                        <h5>分区管理</h5>
+                                        <p>灵活、合理的管理及利用磁盘</p>
+                                    </div>
+                                </a>
+                                <a href="/backup-restore.php" class="lk ico3 clearfix">
+                                    <div class="fl">
+                                        <h5>备份还原</h5>
+                                        <p>功能多样、运行稳定</p>
+                                    </div>
+                                </a>
+                                <a href="/function.php" class="lk ico4 clearfix">
+                                    <div class="fl">
+                                        <h5>更多功能</h5>
+                                        <p>满足您管理数据和磁盘的各种需求</p>
+                                    </div>
+                                </a>
+                            </div>
+                        </li>
+                        <li class="li3">
+                            <a href="/download.php">下载</a>
+                        </li>
+                        <li class="li4">
+                            <a href="//www.eassos.cn/dg/buynow.php" target="_blank">购买</a>
+                        </li>
+                        <li class="li5 has">
+                            <span class="arrow"></span>
+                            <a href="#">帮助</a>
+                            <div class="drop">
+                                <a href="/help/" class="lk ico1 clearfix" target="_blank">
+                                    <div class="fl">
+                                        <h5>在线帮助</h5>
+                                        <p>软件教程，操作步骤一目了然</p>
+                                    </div>
+                                </a>
+                                <a href="/resource/" class="lk ico2 clearfix" target="_blank">
+                                    <div class="fl">
+                                        <h5>教程文章</h5>
+                                        <p>了解数据恢复的多种方式</p>
+                                    </div>
+                                </a>
+                                <a href="/resource/news.php" class="lk ico3 clearfix" target="_blank">
+                                    <div class="fl">
+                                        <h5>软件资讯</h5>
+                                        <p>及时了解软件最新资讯</p>
+                                    </div>
+                                </a>
+                                <a href="/bbs/" class="lk ico4 clearfix" target="_blank">
+                                    <div class="fl">
+                                        <h5>软件论坛</h5>
+                                        <p>提出问题，一起探讨</p>
+                                    </div>
+                                </a>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="rightbox">
+                <div class="hd-link">
+                    <a href="//www.onekeyrestore.cn" class="lk website" target="_blank">
+                        <em class="icon"></em>
+                        <h6 class="tit">易数一键还原</h6>
+                    </a>
+                    <a href="//www.eassos.cn/remote-data-recovery.php" class="lk remote" target="_blank">
+                        <em class="icon"></em>
+                        <h6 class="tit">远程数据恢复</h6>
+                    </a>
+                </div>
+                <div class="hd-tel">
+                    <div class="flex">
+                        <img src="/public/images/icon_04.png" class="ico" alt="技术支持">
+                        <span class="fz flex-1">技术支持：400-900-5080<br>
+                        (08:30-21:00)</span>
+                    </div>
+                </div>
+            </div>
+            <span class="sj-menu"></span>
+        </div>
+    </div>
+    
+<div style=" background:url(/HttpErrors/img/1234.jpg) center; height:750px;" class="error">
+	<div style="width:960px; margin:0 auto;">
+		<div style="width:700px; height:40px; padding:177px 0 0 253px">
+			<div style="float:left; height:30px; margin:0 0 0 0px">
+				<p><a href="/">DiskGenius首页</a></p>
+			</div>
+			<div style="float:left; height:30px; margin:0 0 0 38px">
+				<p><a href="//www.eassos.cn/mr/">易数手机恢复</a></p>
+			</div>
+		</div>
+		<div style="width:600px; height:50px; margin:10px 0 0 160px">
+			<div style="float:left; height:30px; margin:15px 0 0 2px">
+				<p><a href="/download.php">DiskGenius下载</a></p>
+			</div>
+			<div style="float:left; height:30px; margin:0 0 0 250px">
+				<p><a href="//www.eassos.cn/remote-data-recovery.php">远程数据恢复</a></p>
+			</div>
+		</div>
+		<div style="width:200px; height:40px; margin:70px 0 0 165px">
+			<p><a href="//www.eassos.cn/cr/">数据恢复精灵</a></p>
+		</div>
+		<div style="width:190px; height:45px; margin:38px 0 0 320px; float:left">
+			<p><a href="//www.onekeyrestore.cn/">易数一键还原</a></p>
+		</div>
+		<div style="width:350px; height:200px; float:left; line-height:20px">
+			<p style="padding:5px 0 0 3px"><img src="/HttpErrors/img/404.png"></p>
+			<p style="padding:5px 0 0 18px">抱歉，您所访问的页面不存在或已删除！</p>
+			<p style="padding:10px 0 0 150px">返回<a href="//www.eassos.cn" style="color:#198DB3">易数官网首页</a></p>
+		</div>
+	</div>
+</div>
+
+<div class="foot">
+	<div class="auto">
+		<div class="ft-t">
+			<div class="lbox">
+				<a href="/" class="ft-logo">
+					<img src="/public/images/logo-diskgenius-150.png" class="img" alt="DiskGenius">
+				</a>
+				<div class="ft-info">
+					<p class="fz address">QQ客服：4009005080</p>
+					<p class="fz tel">技术支持: 400-900-5080 (08:30-21:00)</p>
+				</div>
+			</div>
+			<div class="rbox ft-wx">
+				<div class="grp">
+					<img src="/public/images/code-weixin.png" class="pic" alt="微信公众号">
+					<p class="wz">微信公众号</p>
+				</div>
+				<div class="grp">
+					<img src="/public/images/code-weibo.png" class="pic" alt="易数官方微博">
+					<p class="wz">易数官方微博</p>
+				</div>
+			</div>
+		</div>
+		<div class="ft-c">
+			<h6 class="t-tit">友情链接</h6>
+			<div class="lks">
+				<a rel="noopener noreferrer" target="_blank" href="http://haobinnan.blog.51cto.com/">WindowsHao博客</a>
+                <a rel="noopener noreferrer" target="_blank" href="http://www.rjno1.com">软件No1</a>
+                <a rel="noopener noreferrer" target="_blank" href="http://www.liantu.com">二维码生成器</a>
+                <a rel="noopener noreferrer" target="_blank" href="http://www.laomaotao.org/">老毛桃</a>
+                <a rel="noopener noreferrer" target="_blank" href="http://www.laomaotao.net">老毛桃winpe</a>
+                <a rel="noopener noreferrer" target="_blank" href="http://www.liulanqi.net">浏览器</a>
+                <a rel="noopener noreferrer" target="_blank" href="https://www.pdf365.cn/">pdf转word在线</a>
+                <a rel="noopener noreferrer" target="_blank" href="http://bbs.intohard.com">数据恢复论坛</a>
+                <a rel="noopener noreferrer" target="_blank" href="http://bbs.wuyou.net">无忧启动论坛</a>
+                <a rel="noopener noreferrer" target="_blank" href="https://www.zwcad.com/">CAD</a>
+                <a rel="noopener noreferrer" target="_blank" href="http://www.udashi.com">U大师U盘启动</a>
+                <a rel="noopener noreferrer" target="_blank" href="http://www.lenosoft.net/">仓库管理软件</a>
+                <a rel="noopener noreferrer" target="_blank" href="http://www.yibaixun.com/">网站建设</a>
+			</div>
+		</div>
+		<div class="ft-b">
+            <span>版权所有 © 2010-2025 <a href="//www.eassos.cn/">易数科技</a></span><span><a href="http://beian.miit.gov.cn" target="_blank" rel="nofollow noopener noreferrer">冀ICP备05002509号-2</a></span><span><a target="_blank" href="http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=13030202002622" rel="noopener noreferrer nofollow"><img src="/public/img/gwab.png" alt="公网安备" style="margin-bottom:-3px" />冀公网安备 13030202002622号</a></span>
+		</div>
+	</div>
+</div>
+<div class="float_frame">
+    <div class="float_icon">
+        <img src="/public/images/service_online.png" alt="在线咨询" />
+        <button class="float_close"></button>
+    </div>
+    <div class="float_container">
+        <a class="float_service float_web" href="javascript:;" id="btnWebService">
+            <span></span>
+            在线咨询
+        </a>
+        <div class="float_service float_wechat">
+            <span></span>
+            微信咨询
+            <div class="float_content wechat_qrcode">
+                <a href="https://wpa1.qq.com/duEiVkhy?_type=wpa&qidian=true" target="_blank"><img src="/public/images/service_qrcode.png" alt="二维码" /></a>
+                点击二维码可直接咨询
+            </div>
+        </div>
+        <div class="float_service float_qq">
+            <span></span>
+            QQ咨询
+            <div class="float_content qq">
+                <a href="javascript:;" id="btnQQService">QQ: 4009005080</a>
+                点击可直接对话
+            </div>
+        </div>
+        <div class="float_service float_phone">
+            <span></span>
+            客服电话
+            <div class="float_content phone">
+                电话: 4009005080
+            </div>
+        </div>
+        <a class="float_service float_top" target="_blank" onClick="$('body,html').animate({scrollTop: 0},1000);">
+            <span></span>
+            回到顶部
+        </a>
+    </div>
+</div>
+
+<script type="text/javascript" async>
+    $(function(){
+        $('.float_service').mousemove(function(){
+            var inx = $(this).index();
+            $('.float_service').eq(inx).children(".float_content").addClass("float_show");
+            $('.float_service').eq(inx).addClass("cur");
+        }).mouseleave(function(){
+            var inx = $(this).index();
+            $('.float_service').eq(inx).children(".float_content").removeClass("float_show");
+            $('.float_service').eq(inx).removeClass("cur");
+        });
+        function ShoworHideTop() {
+            h = $(window).height();
+            t = $(document).scrollTop();
+            if (t > h) {
+                $('.float_top').show();
+            } else {
+                $('.float_top').hide();
+            }
+        }
+        ShoworHideTop();
+        $(window).scroll(function(e) {
+            ShoworHideTop();
+        });
+        $(".float_icon .float_close").click(function() {
+            $(".float_frame").css("display", "none");
+        });
+    });
+</script>
+<!-- WPA start -->
+<script id="qd23551869174591e872f64a232f6e4e5d9dc064d01d" src="https://wp.qiye.qq.com/qidian/2355186917/4591e872f64a232f6e4e5d9dc064d01d" charset="utf-8" async defer></script>
+<script id="qd2355186917676e30b67dc6efb0ab6d0745aeed19eb" src="https://wp.qiye.qq.com/qidian/2355186917/676e30b67dc6efb0ab6d0745aeed19eb" charset="utf-8" async defer></script>
+<!-- WPA end -->
+<script type="text/javascript" async defer>
+	var dpr = window.devicePixelRatio;
+	if (dpr >= 3){
+		$('.coa-top img').attr("src", "/public/images/logo-diskgenius-300.png");
+	}
+	else if (dpr >= 2){
+		$('.coa-top img').attr("src", "/public/images/logo-diskgenius-200.png");
+	}
+	else if (dpr >= 1.5){
+		$('.coa-top img').attr("src", "/public/images/logo-diskgenius-150.png");
+	}
+	else {
+		$('.coa-top img').attr("src", "/public/images/logo-diskgenius.png");
+	}
+</script>
+<script src="/public/js/common.js"></script>
+</body>
+</html>

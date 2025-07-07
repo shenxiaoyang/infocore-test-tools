@@ -15,7 +15,6 @@ a = Analysis(
         ('src/resources/diskprobe/diskprobe.exe', 'src/resources/diskprobe'),
         ('src/resources/DiskGenius', 'src/resources/DiskGenius'),
         ('src/resources/icons', 'src/resources/icons'),
-        ('C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python37\\Lib\\site-packages\\PyQt5\\Qt5\\plugins\\platforms', 'platforms'),
     ],
     hiddenimports=[
         'PyQt5',
@@ -43,7 +42,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='Windows工具集-v1.0.64',
+    name='Windows工具集-v1.0.67',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

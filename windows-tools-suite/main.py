@@ -287,6 +287,7 @@ class MainWindow(QMainWindow):
             self._show_filegen_auto_dialog(config)
 
     def _show_filegen_auto_dialog(self, config):
+        logger.info("显示文件产生器自动恢复对话框")
         from PyQt5.QtWidgets import QMessageBox, QDialog, QVBoxLayout, QLabel, QPushButton, QHBoxLayout
         from PyQt5.QtCore import QTimer
         dialog = QDialog(self)
@@ -318,6 +319,7 @@ class MainWindow(QMainWindow):
             self._auto_open_filegen_with_config(config)
 
     def _auto_open_filegen_with_config(self, config):
+        logger.info("自动打开文件产生器")
         # 打开文件产生器窗口并自动填充参数并开始
         if self.file_generator_window is None or not self.file_generator_window.isVisible():
             self.file_generator_window = FileGeneratorUI()
@@ -342,6 +344,7 @@ class MainWindow(QMainWindow):
 
     def open_md5_calculator(self):
         """打开MD5计算器窗口（单例模式）"""
+        logger.info("打开MD5计算器")
         if self.md5_calculator_window is None or not self.md5_calculator_window.isVisible():
             self.md5_calculator_window = MD5CalculatorUI()
             self.md5_calculator_window.show()
@@ -351,6 +354,7 @@ class MainWindow(QMainWindow):
         
     def open_system_disk_calculator(self):
         """打开系统盘MD5计算器窗口（单例模式）"""
+        logger.info("打开系统盘MD5计算器")
         if self.md5_calculator_window is None or not self.md5_calculator_window.isVisible():
             self.md5_calculator_window = MD5CalculatorUI()
             # 设置系统相关的文件扩展名
@@ -370,6 +374,7 @@ class MainWindow(QMainWindow):
 
     def open_file_compare(self):
         """打开文件对比窗口（单例模式）"""
+        logger.info("打开文件对比")
         if self.file_compare_window is None or not self.file_compare_window.isVisible():
             self.file_compare_window = FileCompareUI()
             self.file_compare_window.show()
@@ -379,6 +384,7 @@ class MainWindow(QMainWindow):
 
     def open_file_generator(self):
         """打开本地文件产生器窗口（单例模式）"""
+        logger.info("打开本地文件产生器")
         if self.file_generator_window is None or not self.file_generator_window.isVisible():
             self.file_generator_window = FileGeneratorUI()
             self.file_generator_window.show()
@@ -388,6 +394,7 @@ class MainWindow(QMainWindow):
 
     def open_file_verify(self):
         """打开文件校验窗口（单例模式）"""
+        logger.info("打开文件校验")
         if self.file_verify_window is None or not self.file_verify_window.isVisible():
             self.file_verify_window = FileVerifyUI()
             self.file_verify_window.show()
@@ -396,16 +403,19 @@ class MainWindow(QMainWindow):
             self.file_verify_window.raise_()
 
     def open_tools_dialog(self):
+        logger.info("打开第三方工具")
         from src.ui.tools_ui import ToolsDialog
         dialog = ToolsDialog(self)
         dialog.exec_()
 
     def open_hostagent_config(self):
+        logger.info("打开HostAgent配置")
         from src.ui.hostagent_config_ui import HostAgentConfigDialog
         dialog = HostAgentConfigDialog(self)
         dialog.exec_()
 
     def open_md5_calc_dialog(self):
+        logger.info("打开MD5计算器")
         from src.ui.file_hash_calc_ui import FileHashCalcDialog
         dialog = FileHashCalcDialog(self)
         dialog.exec_()

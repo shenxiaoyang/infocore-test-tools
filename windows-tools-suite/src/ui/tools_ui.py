@@ -1,6 +1,11 @@
 from PyQt5.QtWidgets import QDialog, QVBoxLayout, QPushButton, QMessageBox
 from PyQt5.QtCore import QThread, pyqtSignal
 import os
+from ..utils.logger import get_logger
+
+# 配置日志
+logger = get_logger(__name__)
+
 
 class SyncThread(QThread):
     finished = pyqtSignal(bool, str)
@@ -35,10 +40,15 @@ class ToolsDialog(QDialog):
         self.sync_btn = QPushButton("刷新系统缓存sync.exe")
         self.sync_btn.clicked.connect(self.run_sync)
         layout.addWidget(self.sync_btn)
+        # 新增clumsy按钮
+        clumsy_btn = QPushButton("网络异常模拟clumsy")
+        clumsy_btn.clicked.connect(self.open_clumsy)
+        layout.addWidget(clumsy_btn)
         self.setLayout(layout)
         self.sync_thread = None
 
     def open_diskprobe(self):
+        logger.info("打开diskprobe")
         exe_path = os.path.join(os.path.dirname(__file__), '..', 'resources', 'diskprobe', 'diskprobe.exe')
         exe_path = os.path.abspath(exe_path)
         try:
@@ -47,6 +57,7 @@ class ToolsDialog(QDialog):
             QMessageBox.warning(self, "打开diskprobe", f"无法打开diskprobe：{str(e)}")
 
     def open_diskgenius(self):
+        logger.info("打开DiskGenius")
         exe_path = os.path.join(os.path.dirname(__file__), '..', 'resources', 'DiskGenius', 'DiskGenius.exe')
         exe_path = os.path.abspath(exe_path)
         try:
@@ -54,7 +65,22 @@ class ToolsDialog(QDialog):
         except Exception as e:
             QMessageBox.warning(self, "打开DiskGenius", f"无法打开DiskGenius：{str(e)}")
 
+    def open_clumsy(self):
+        logger.info("打开clumsy")
+        exe_path = os.path.join(os.path.dirname(__file__), '..', 'resources', 'clumsy', 'clumsy.exe')
+        exe_path = os.path.abspath(exe_path)
+        try:
+            import subprocess
+            subprocess.run(
+                ['powershell', '-Command', f'Start-Process "{exe_path}" -Verb runAs'],
+                check=True,
+                creationflags=subprocess.CREATE_NO_WINDOW
+            )
+        except Exception as e:
+            QMessageBox.warning(self, "打开clumsy", f"无法以管理员权限打开clumsy：{str(e)}")
+
     def run_sync(self):
+        logger.info("运行sync")
         self.sync_btn.setEnabled(False)
         self.sync_btn.setText("正在刷新...")
         self.sync_thread = SyncThread()

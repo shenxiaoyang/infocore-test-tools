@@ -42,7 +42,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='Windows工具集-v1.0.67',
+    name='Windows工具集-v1.0.69',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

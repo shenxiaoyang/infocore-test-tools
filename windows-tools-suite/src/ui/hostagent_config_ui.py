@@ -8,6 +8,7 @@ import tempfile
 import os
 from PyQt5.QtCore import QThread, pyqtSignal
 import time
+import shutil
 
 logger = get_logger(__name__)
 
@@ -78,6 +79,71 @@ class BcdEditSetThread(QThread):
         except Exception as e:
             self.finished.emit(False, str(e))
 
+class WindowsUpdateResetThread(QThread):
+    progress = pyqtSignal(str)  # 当前步骤描述
+    finished = pyqtSignal(bool, str)  # success, error_msg
+    
+    def run(self):
+        try:
+            # 步骤1：停止Windows更新服务
+            self.progress.emit("正在停止Windows更新服务...")
+            ret = ctypes.windll.shell32.ShellExecuteW(
+                None, "runas", "cmd.exe", "/c net stop wuauserv", None, 0
+            )
+            if ret <= 32:
+                self.finished.emit(False, f"停止Windows更新服务失败，返回码: {ret}")
+                return
+            time.sleep(1)
+            
+            # 步骤2：禁用Windows更新服务
+            self.progress.emit("正在禁用Windows更新服务...")
+            ret = ctypes.windll.shell32.ShellExecuteW(
+                None, "runas", "cmd.exe", "/c sc config wuauserv start=disabled", None, 0
+            )
+            if ret <= 32:
+                self.finished.emit(False, f"禁用Windows更新服务失败，返回码: {ret}")
+                return
+            time.sleep(1)
+            
+            # 步骤3：删除相关目录
+            self.progress.emit("正在删除相关目录...")
+            download_path = r"C:\Windows\SoftwareDistribution\Download"
+            datastore_path = r"C:\Windows\SoftwareDistribution\DataStore"
+            
+            try:
+                if os.path.exists(download_path):
+                    shutil.rmtree(download_path, ignore_errors=True)
+                if os.path.exists(datastore_path):
+                    shutil.rmtree(datastore_path, ignore_errors=True)
+            except Exception as e:
+                self.finished.emit(False, f"删除目录失败: {str(e)}")
+                return
+            time.sleep(1)
+            
+            # 步骤4：设置Windows更新服务为自动
+            self.progress.emit("正在设置Windows更新服务为自动...")
+            ret = ctypes.windll.shell32.ShellExecuteW(
+                None, "runas", "cmd.exe", "/c sc config wuauserv start=auto", None, 0
+            )
+            if ret <= 32:
+                self.finished.emit(False, f"设置Windows更新服务为自动失败，返回码: {ret}")
+                return
+            time.sleep(1)
+            
+            # 步骤5：启动Windows更新服务
+            self.progress.emit("正在启动Windows更新服务...")
+            ret = ctypes.windll.shell32.ShellExecuteW(
+                None, "runas", "cmd.exe", "/c net start wuauserv", None, 0
+            )
+            if ret <= 32:
+                self.finished.emit(False, f"启动Windows更新服务失败，返回码: {ret}")
+                return
+            time.sleep(1)
+            
+            self.finished.emit(True, "")
+        except Exception as e:
+            self.finished.emit(False, str(e))
+
 class HostAgentConfigDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -85,6 +151,7 @@ class HostAgentConfigDialog(QDialog):
         self.setMinimumWidth(400)
         self.query_thread = None
         self.set_thread = None
+        self.update_reset_thread = None
         self.init_ui()
         self.refresh_log_btn()
         self.refresh_sign_btn()
@@ -119,10 +186,20 @@ class HostAgentConfigDialog(QDialog):
         sign_layout.addWidget(self.sign_btn)
         sign_group.setLayout(sign_layout)
         layout.addWidget(sign_group)
+        
+        # Windows更新重置分组
+        update_group = QGroupBox("Windows更新重置")
+        update_layout = QVBoxLayout()
+        self.update_reset_btn = QPushButton("重置更新配置")
+        self.update_reset_btn.clicked.connect(self.reset_windows_update)
+        update_layout.addWidget(self.update_reset_btn)
+        update_group.setLayout(update_layout)
+        layout.addWidget(update_group)
+        
         # 预留后续模块分块
         layout.addStretch()
         self.setLayout(layout)
-        
+
     def refresh_log_btn(self):
         logger.info("刷新日志按钮")
         # 检查注册表项是否存在
@@ -242,3 +319,53 @@ class HostAgentConfigDialog(QDialog):
             return ctypes.windll.shell32.IsUserAnAdmin()
         except:
             return False
+
+    def reset_windows_update(self):
+        # 添加二级确认对话框
+        reply = QMessageBox.question(
+            self, 
+            "确认重置Windows更新", 
+            "此操作将执行以下步骤：\n\n"
+            "1. 停止Windows更新服务\n"
+            "2. 禁用Windows更新服务\n"
+            "3. 删除更新缓存目录\n"
+            "4. 重新启用Windows更新服务\n"
+            "5. 启动Windows更新服务\n\n"
+            "此操作需要管理员权限，确定要继续吗？",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No  # 默认选择"否"
+        )
+        
+        if reply != QMessageBox.Yes:
+            logger.info("用户取消了Windows更新重置操作")
+            return
+            
+        logger.info("开始重置Windows更新配置")
+        self.update_reset_btn.setEnabled(False)
+        self.update_reset_btn.setText("准备重置...")
+        
+        self.update_reset_thread = WindowsUpdateResetThread()
+        self.update_reset_thread.progress.connect(self.on_update_progress)
+        self.update_reset_thread.finished.connect(self.on_update_finished)
+        self.update_reset_thread.start()
+
+    def on_update_progress(self, step_text):
+        self.update_reset_btn.setText(step_text)
+        logger.info(step_text)
+
+    def on_update_finished(self, success, error_msg):
+        if success:
+            self.update_reset_btn.setText("重置完成")
+            QMessageBox.information(self, "操作成功", "Windows更新配置已重置完成！\n\n已执行以下操作：\n1. 停止Windows更新服务\n2. 禁用Windows更新服务\n3. 删除相关目录\n4. 设置服务为自动启动\n5. 启动Windows更新服务")
+            logger.info("Windows更新重置成功")
+        else:
+            self.update_reset_btn.setText("重置失败")
+            QMessageBox.warning(self, "操作失败", f"Windows更新重置失败：{error_msg}")
+            logger.error(f"Windows更新重置失败: {error_msg}")
+        
+        # 3秒后恢复按钮
+        from PyQt5.QtCore import QTimer
+        QTimer.singleShot(3000, lambda: (
+            self.update_reset_btn.setText("重置更新配置"),
+            self.update_reset_btn.setEnabled(True)
+        ))

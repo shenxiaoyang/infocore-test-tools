@@ -10,15 +10,16 @@ logger = get_logger(__name__)
 class SyncThread(QThread):
     finished = pyqtSignal(bool, str)
     def run(self):
-        import subprocess
+        import ctypes
         exe_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'resources', 'sync', 'sync.exe'))
         try:
-            subprocess.run(
-                ['powershell', '-Command', f'Start-Process "{exe_path}" "-r -nobanner" -Verb runAs -WindowStyle Hidden'],
-                check=True,
-                creationflags=subprocess.CREATE_NO_WINDOW
+            ret = ctypes.windll.shell32.ShellExecuteW(
+                None, "runas", "cmd.exe", f'/c "{exe_path}" -r -nobanner', None, 0
             )
-            self.finished.emit(True, "刷新成功！")
+            if ret > 32:
+                self.finished.emit(True, "刷新成功！")
+            else:
+                self.finished.emit(False, f"无法以管理员权限运行sync.exe，返回码：{ret}")
         except Exception as e:
             self.finished.emit(False, f"无法以管理员权限运行sync.exe：{str(e)}")
 
@@ -41,7 +42,7 @@ class ToolsDialog(QDialog):
         self.sync_btn.clicked.connect(self.run_sync)
         layout.addWidget(self.sync_btn)
         # 新增clumsy按钮
-        clumsy_btn = QPushButton("网络异常模拟clumsy")
+        clumsy_btn = QPushButton("网络异常模拟clumsy.exe")
         clumsy_btn.clicked.connect(self.open_clumsy)
         layout.addWidget(clumsy_btn)
         self.setLayout(layout)
@@ -70,12 +71,12 @@ class ToolsDialog(QDialog):
         exe_path = os.path.join(os.path.dirname(__file__), '..', 'resources', 'clumsy', 'clumsy.exe')
         exe_path = os.path.abspath(exe_path)
         try:
-            import subprocess
-            subprocess.run(
-                ['powershell', '-Command', f'Start-Process "{exe_path}" -Verb runAs'],
-                check=True,
-                creationflags=subprocess.CREATE_NO_WINDOW
+            import ctypes
+            ret = ctypes.windll.shell32.ShellExecuteW(
+                None, "runas", "cmd.exe", f'/c start "" "{exe_path}"', None, 1
             )
+            if ret <= 32:
+                QMessageBox.warning(self, "打开clumsy", f"无法以管理员权限打开clumsy，返回码：{ret}")
         except Exception as e:
             QMessageBox.warning(self, "打开clumsy", f"无法以管理员权限打开clumsy：{str(e)}")
 
@@ -93,4 +94,4 @@ class ToolsDialog(QDialog):
         else:
             QMessageBox.warning(self, "运行sync", msg)
         self.sync_btn.setEnabled(True)
-        self.sync_btn.setText("sync")
+        self.sync_btn.setText("刷新系统缓存sync.exe")

@@ -13,7 +13,6 @@ import re
 from src.core.file_generator import FileGenerator
 from src.utils.common import format_size
 import yaml
-import winreg
 
 # 配置日志
 logger = get_logger(__name__)
@@ -385,14 +384,7 @@ class FileGeneratorUI(QWidget):
         self.save_config_btn.setStyleSheet(self.btn_style['blue'])
         self.save_config_btn.clicked.connect(self.save_config)
         
-        self.register_startup_btn = QPushButton()
-        self.register_startup_btn.setFixedWidth(100)
-        self.register_startup_btn.setStyleSheet(self.btn_style['blue'])
-        self.register_startup_btn.clicked.connect(self.register_startup)
-        
-        self.auto_login_btn = QPushButton()
-        self.auto_login_btn.setFixedWidth(100)
-        self.auto_login_btn.setStyleSheet(self.btn_style['blue'])
+
         
         self.start_btn.clicked.connect(self.start_generation)
         self.pause_btn.clicked.connect(self.pause_generation)
@@ -403,8 +395,6 @@ class FileGeneratorUI(QWidget):
         btn_layout.addWidget(self.pause_btn)
         btn_layout.addWidget(self.stop_btn)
         btn_layout.addWidget(self.save_config_btn)
-        btn_layout.addWidget(self.register_startup_btn)
-        btn_layout.addWidget(self.auto_login_btn)
         btn_layout.addStretch()
         
         btn_group.setLayout(btn_layout)
@@ -448,8 +438,7 @@ class FileGeneratorUI(QWidget):
         status_group.setLayout(status_layout)
         layout.addWidget(status_group)
         
-        self.check_startup_status()  # 初始化时检查
-        self.check_auto_login_status()  # 检查自动登录
+
         
     def select_directory(self):
         """选择目标目录"""
@@ -756,157 +745,3 @@ class FileGeneratorUI(QWidget):
             yaml.safe_dump(config, f, allow_unicode=True)
         QMessageBox.information(self, "保存成功", f"配置已保存到: {file_path}")
 
-    def check_startup_status(self):
-        try:
-            key = winreg.OpenKey(
-                winreg.HKEY_CURRENT_USER,
-                r"Software\\Microsoft\\Windows\\CurrentVersion\\Run"
-            )
-            value, _ = winreg.QueryValueEx(key, "EIMFilegen")
-            winreg.CloseKey(key)
-            # 检查是否带autorun参数
-            if "autorun" in value:
-                self.register_startup_btn.setText("取消开机自启")
-                try:
-                    self.register_startup_btn.clicked.disconnect()
-                except Exception:
-                    pass
-                self.register_startup_btn.clicked.connect(self.unregister_startup)
-            else:
-                self.register_startup_btn.setText("注册自启")
-                try:
-                    self.register_startup_btn.clicked.disconnect()
-                except Exception:
-                    pass
-                self.register_startup_btn.clicked.connect(self.register_startup)
-        except FileNotFoundError:
-            self.register_startup_btn.setText("注册自启")
-            try:
-                self.register_startup_btn.clicked.disconnect()
-            except Exception:
-                pass
-            self.register_startup_btn.clicked.connect(self.register_startup)
-        except Exception:
-            self.register_startup_btn.setText("注册自启")
-            try:
-                self.register_startup_btn.clicked.disconnect()
-            except Exception:
-                pass
-            self.register_startup_btn.clicked.connect(self.register_startup)
-
-    def register_startup(self):
-        exe_path = os.path.abspath(sys.argv[0])
-        autorun_cmd = f'"{exe_path}" autorun'  # 加autorun参数
-        try:
-            key = winreg.CreateKey(
-                winreg.HKEY_CURRENT_USER,
-                r"Software\\Microsoft\\Windows\\CurrentVersion\\Run"
-            )
-            winreg.SetValueEx(key, "EIMFilegen", 0, winreg.REG_SZ, autorun_cmd)
-            winreg.CloseKey(key)
-            QMessageBox.information(self, "注册成功", f"已注册开机自启：{autorun_cmd}")
-        except Exception as e:
-            QMessageBox.critical(self, "注册失败", f"注册开机自启失败：{str(e)}")
-        self.check_startup_status()
-
-    def unregister_startup(self):
-        try:
-            key = winreg.OpenKey(
-                winreg.HKEY_CURRENT_USER,
-                r"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
-                0, winreg.KEY_SET_VALUE
-            )
-            winreg.DeleteValue(key, "EIMFilegen")
-            winreg.CloseKey(key)
-            QMessageBox.information(self, "取消成功", "已取消开机自启。")
-        except FileNotFoundError:
-            QMessageBox.information(self, "无需操作", "未设置开机自启。")
-        except Exception as e:
-            QMessageBox.critical(self, "取消失败", f"取消开机自启失败：{str(e)}")
-        self.check_startup_status()
-
-    def check_auto_login_status(self):
-        try:
-            key = winreg.OpenKey(
-                winreg.HKEY_LOCAL_MACHINE,
-                r"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon"
-            )
-            value, _ = winreg.QueryValueEx(key, "AutoAdminLogon")
-            winreg.CloseKey(key)
-            if value == '1':
-                self.auto_login_btn.setText("取消自动登录")
-                try:
-                    self.auto_login_btn.clicked.disconnect()
-                except Exception:
-                    pass
-                self.auto_login_btn.clicked.connect(self.unset_auto_login)
-                return
-        except Exception:
-            pass
-        self.auto_login_btn.setText("系统自动登录")
-        try:
-            self.auto_login_btn.clicked.disconnect()
-        except Exception:
-            pass
-        self.auto_login_btn.clicked.connect(self.set_auto_login)
-
-    def set_auto_login(self):
-        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QHBoxLayout, QPushButton
-        dialog = QDialog(self)
-        dialog.setWindowTitle("系统自动登录配置")
-        layout = QVBoxLayout()
-        layout.addWidget(QLabel("请输入要自动登录的用户名和密码："))
-        user_edit = QLineEdit()
-        user_edit.setPlaceholderText("用户名")
-        pwd_edit = QLineEdit()
-        pwd_edit.setPlaceholderText("密码")
-        pwd_edit.setEchoMode(QLineEdit.Password)
-        layout.addWidget(user_edit)
-        layout.addWidget(pwd_edit)
-        btn_layout = QHBoxLayout()
-        ok_btn = QPushButton("确定")
-        cancel_btn = QPushButton("取消")
-        btn_layout.addWidget(ok_btn)
-        btn_layout.addWidget(cancel_btn)
-        layout.addLayout(btn_layout)
-        dialog.setLayout(layout)
-        ok_btn.clicked.connect(dialog.accept)
-        cancel_btn.clicked.connect(dialog.reject)
-        if dialog.exec_() == QDialog.Accepted:
-            username = user_edit.text().strip()
-            password = pwd_edit.text().strip()
-            if not username or not password:
-                QMessageBox.warning(self, "警告", "用户名和密码不能为空！")
-                return
-            try:
-                key = winreg.OpenKey(
-                    winreg.HKEY_LOCAL_MACHINE,
-                    r"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon",
-                    0, winreg.KEY_SET_VALUE
-                )
-                winreg.SetValueEx(key, "AutoAdminLogon", 0, winreg.REG_SZ, '1')
-                winreg.SetValueEx(key, "DefaultUserName", 0, winreg.REG_SZ, username)
-                winreg.SetValueEx(key, "DefaultPassword", 0, winreg.REG_SZ, password)
-                winreg.CloseKey(key)
-                QMessageBox.information(self, "设置成功", "系统自动登录已配置！")
-            except Exception as e:
-                QMessageBox.critical(self, "设置失败", f"自动登录配置失败：{str(e)}\n请尝试以管理员身份运行程序。")
-        self.check_auto_login_status()
-
-    def unset_auto_login(self):
-        try:
-            key = winreg.OpenKey(
-                winreg.HKEY_LOCAL_MACHINE,
-                r"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon",
-                0, winreg.KEY_SET_VALUE
-            )
-            winreg.DeleteValue(key, "AutoAdminLogon")
-            winreg.DeleteValue(key, "DefaultUserName")
-            winreg.DeleteValue(key, "DefaultPassword")
-            winreg.CloseKey(key)
-            QMessageBox.information(self, "取消成功", "已取消系统自动登录。")
-        except FileNotFoundError:
-            QMessageBox.information(self, "无需操作", "未设置系统自动登录。")
-        except Exception as e:
-            QMessageBox.critical(self, "取消失败", f"取消自动登录失败：{str(e)}\n请尝试以管理员身份运行程序。")
-        self.check_auto_login_status()

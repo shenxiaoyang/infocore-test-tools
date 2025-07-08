@@ -225,7 +225,7 @@ class MainWindow(QMainWindow):
         hostagent_btn.leaveEvent = lambda e: self.update_subtitle("便捷实用的Windows工具箱")
         tools_grid.addWidget(hostagent_btn, 4, 0, 1, 2)
 
-        # 最后一行：第三方工具按钮
+        # 第六行：第三方工具按钮
         thirdparty_btn = QPushButton("第三方工具")
         thirdparty_btn.setMinimumHeight(30)
         thirdparty_btn.setStyleSheet(self.btn_style)
@@ -234,6 +234,16 @@ class MainWindow(QMainWindow):
         thirdparty_btn.enterEvent = lambda e: self.update_subtitle("打开第三方磁盘工具")
         thirdparty_btn.leaveEvent = lambda e: self.update_subtitle("便捷实用的Windows工具箱")
         tools_grid.addWidget(thirdparty_btn, 5, 0, 1, 2)
+
+        # 第七行：Windows系统配置按钮
+        system_config_btn = QPushButton("Windows系统配置")
+        system_config_btn.setMinimumHeight(30)
+        system_config_btn.setStyleSheet(self.btn_style)
+        system_config_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        system_config_btn.clicked.connect(self.open_system_config)
+        system_config_btn.enterEvent = lambda e: self.update_subtitle("Windows系统配置和优化工具")
+        system_config_btn.leaveEvent = lambda e: self.update_subtitle("便捷实用的Windows工具箱")
+        tools_grid.addWidget(system_config_btn, 6, 0, 1, 2)
 
         # 用QWidget包裹GridLayout，便于加到主layout
         tools_widget = QWidget()
@@ -246,7 +256,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(tools_container)
         
         # 添加底部信息
-        footer = QLabel("© InfoCore 2025 测试部")
+        footer = QLabel("© 2025 InfoCore 测试部")
         footer.setAlignment(Qt.AlignCenter)
         footer.setStyleSheet("""
             color: #7f8fa6;
@@ -418,6 +428,13 @@ class MainWindow(QMainWindow):
         logger.info("打开MD5计算器")
         from src.ui.file_hash_calc_ui import FileHashCalcDialog
         dialog = FileHashCalcDialog(self)
+        dialog.exec_()
+
+    def open_system_config(self):
+        """打开Windows系统配置"""
+        logger.info("打开Windows系统配置")
+        from src.ui.windows_config_ui import WindowsConfigDialog
+        dialog = WindowsConfigDialog(self)
         dialog.exec_()
 
     def update_subtitle(self, text):

@@ -16,6 +16,8 @@ a = Analysis(
         ('src/resources/DiskGenius', 'src/resources/DiskGenius'),
         ('src/resources/clumsy', 'src/resources/clumsy'),
         ('src/resources/sync', 'src/resources/sync'),
+        ('src/resources/processmonitor', 'src/resources/processmonitor'),
+        ('src/resources/vmmap', 'src/resources/vmmap'),
         ('src/resources/icons', 'src/resources/icons'),
     ],
     hiddenimports=[
@@ -44,7 +46,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='Windows工具集-v1.0.76',
+    name='Windows工具集-v1.0.78',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

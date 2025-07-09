@@ -1,6 +1,7 @@
-from PyQt5.QtWidgets import QDialog, QVBoxLayout, QPushButton, QMessageBox
+from PyQt5.QtWidgets import QDialog, QVBoxLayout, QPushButton, QMessageBox, QGroupBox, QHBoxLayout
 from PyQt5.QtCore import QThread, pyqtSignal
 import os
+import ctypes
 from ..utils.logger import get_logger
 
 # 配置日志
@@ -10,7 +11,6 @@ logger = get_logger(__name__)
 class SyncThread(QThread):
     finished = pyqtSignal(bool, str)
     def run(self):
-        import ctypes
         exe_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'resources', 'sync', 'sync.exe'))
         try:
             ret = ctypes.windll.shell32.ShellExecuteW(
@@ -29,24 +29,53 @@ class ToolsDialog(QDialog):
         self.setWindowTitle("第三方工具")
         self.setMinimumWidth(300)
         layout = QVBoxLayout()
-        # diskprobe按钮
-        diskprobe_btn = QPushButton("磁盘扇区查看diskprobe.exe")
+
+        # diskprobe分组
+        diskprobe_group = QGroupBox("磁盘扇区查看")
+        diskprobe_layout = QHBoxLayout()
+        diskprobe_btn = QPushButton("打开diskprobe")
         diskprobe_btn.clicked.connect(self.open_diskprobe)
-        layout.addWidget(diskprobe_btn)
-        # DiskGenius按钮
-        diskgenius_btn = QPushButton("磁盘信息查看DiskGenius")
+        diskprobe_layout.addWidget(diskprobe_btn)
+        diskprobe_group.setLayout(diskprobe_layout)
+        layout.addWidget(diskprobe_group)
+
+        # DiskGenius分组
+        diskgenius_group = QGroupBox("磁盘信息查看")
+        diskgenius_layout = QHBoxLayout()
+        diskgenius_btn = QPushButton("打开DiskGenius")
         diskgenius_btn.clicked.connect(self.open_diskgenius)
-        layout.addWidget(diskgenius_btn)
-        # sync按钮
-        self.sync_btn = QPushButton("刷新系统缓存sync.exe")
-        self.sync_btn.clicked.connect(self.run_sync)
-        layout.addWidget(self.sync_btn)
-        # 新增clumsy按钮
-        clumsy_btn = QPushButton("网络异常模拟clumsy.exe")
+        diskgenius_layout.addWidget(diskgenius_btn)
+        diskgenius_group.setLayout(diskgenius_layout)
+        layout.addWidget(diskgenius_group)
+
+        # clumsy分组
+        clumsy_group = QGroupBox("网络异常模拟")
+        clumsy_layout = QHBoxLayout()
+        clumsy_btn = QPushButton("打开clumsy")
         clumsy_btn.clicked.connect(self.open_clumsy)
-        layout.addWidget(clumsy_btn)
+        clumsy_layout.addWidget(clumsy_btn)
+        clumsy_group.setLayout(clumsy_layout)
+        layout.addWidget(clumsy_group)
+
+        # 新增：进程查看器分组
+        procmon_group = QGroupBox("进程查看器")
+        procmon_layout = QHBoxLayout()
+        procmon_btn = QPushButton("打开Procmon")
+        procmon_btn.clicked.connect(self.open_procmon)
+        procmon_layout.addWidget(procmon_btn)
+        procmon_group.setLayout(procmon_layout)
+        layout.addWidget(procmon_group)
+
+        # 新增：内存检测实用工具分组
+        vmmap_group = QGroupBox("内存检测实用工具")
+        vmmap_layout = QHBoxLayout()
+        vmmap_btn = QPushButton("打开VMMap")
+        vmmap_btn.clicked.connect(self.open_vmmap)
+        vmmap_layout.addWidget(vmmap_btn)
+        vmmap_group.setLayout(vmmap_layout)
+        layout.addWidget(vmmap_group)
+
         self.setLayout(layout)
-        self.sync_thread = None
 
     def open_diskprobe(self):
         logger.info("打开diskprobe")
@@ -71,7 +100,6 @@ class ToolsDialog(QDialog):
         exe_path = os.path.join(os.path.dirname(__file__), '..', 'resources', 'clumsy', 'clumsy.exe')
         exe_path = os.path.abspath(exe_path)
         try:
-            import ctypes
             ret = ctypes.windll.shell32.ShellExecuteW(
                 None, "runas", "cmd.exe", f'/c start "" "{exe_path}"', None, 1
             )
@@ -80,18 +108,28 @@ class ToolsDialog(QDialog):
         except Exception as e:
             QMessageBox.warning(self, "打开clumsy", f"无法以管理员权限打开clumsy：{str(e)}")
 
-    def run_sync(self):
-        logger.info("运行sync")
-        self.sync_btn.setEnabled(False)
-        self.sync_btn.setText("正在刷新...")
-        self.sync_thread = SyncThread()
-        self.sync_thread.finished.connect(self.on_sync_finished)
-        self.sync_thread.start()
+    def open_procmon(self):
+        logger.info("打开Procmon")
+        exe_path = os.path.join(os.path.dirname(__file__), '..', 'resources', 'processmonitor', 'Procmon.exe')
+        exe_path = os.path.abspath(exe_path)
+        try:
+            ret = ctypes.windll.shell32.ShellExecuteW(
+                None, "runas", "cmd.exe", f'/c start "" "{exe_path}"', None, 1
+            )
+            if ret <= 32:
+                QMessageBox.warning(self, "打开Procmon", f"无法以管理员权限打开Procmon，返回码：{ret}")
+        except Exception as e:
+            QMessageBox.warning(self, "打开Procmon", f"无法以管理员权限打开Procmon：{str(e)}")
 
-    def on_sync_finished(self, success, msg):
-        if success:
-            QMessageBox.information(self, "Sync", msg)
-        else:
-            QMessageBox.warning(self, "运行sync", msg)
-        self.sync_btn.setEnabled(True)
-        self.sync_btn.setText("刷新系统缓存sync.exe")
+    def open_vmmap(self):
+        logger.info("打开VMMap")
+        exe_path = os.path.join(os.path.dirname(__file__), '..', 'resources', 'vmmap', 'vmmap.exe')
+        exe_path = os.path.abspath(exe_path)
+        try:
+            ret = ctypes.windll.shell32.ShellExecuteW(
+                None, "runas", "cmd.exe", f'/c start "" "{exe_path}"', None, 1
+            )
+            if ret <= 32:
+                QMessageBox.warning(self, "打开VmMap", f"无法以管理员权限打开VmMap，返回码：{ret}")
+        except Exception as e:
+            QMessageBox.warning(self, "打开VmMap", f"无法以管理员权限打开VmMap：{str(e)}")

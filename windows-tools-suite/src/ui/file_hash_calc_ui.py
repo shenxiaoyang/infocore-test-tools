@@ -1,11 +1,15 @@
-from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit, QFileDialog, QCheckBox, QTextEdit, QMessageBox, QProgressBar, QTableWidget, QTableWidgetItem, QHeaderView, QWidget
-from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, 
+                             QLabel, QLineEdit, QFileDialog, QCheckBox, 
+                             QTextEdit, QMessageBox, QProgressBar, 
+                             QTableWidget, QTableWidgetItem, QHeaderView, 
+                             QWidget)
+from PyQt5.QtGui import QIcon, QPixmap
 import hashlib
 import os
 import pathlib
 import time
 from src.utils.logger import get_logger
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt5.QtCore import QThread, pyqtSignal, Qt
 
 logger = get_logger(__name__)
 
@@ -295,8 +299,7 @@ class HistoryDialog(QDialog):
         self.table.setHorizontalScrollMode(QTableWidget.ScrollPerPixel)
         layout.addWidget(self.table)
         # 无历史记录图片和文字
-        from PyQt5.QtCore import Qt
-        from PyQt5.QtGui import QPixmap
+        
         self.empty_widget = QWidget()
         empty_layout = QVBoxLayout()
         empty_layout.setAlignment(Qt.AlignCenter)

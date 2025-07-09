@@ -4,12 +4,8 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 import os
 import sys
-import hashlib
 import random
-import time
-import shutil
 from ..utils.logger import get_logger
-import re
 from src.core.file_generator import FileGenerator
 from src.utils.common import format_size
 import yaml

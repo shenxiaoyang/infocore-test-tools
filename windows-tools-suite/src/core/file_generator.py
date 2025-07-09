@@ -2,7 +2,6 @@ import os
 import hashlib
 import random
 import time
-from src.utils.common import format_size
 import shutil
 
 class FileGenerator:

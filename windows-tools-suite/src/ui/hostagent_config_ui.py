@@ -1,7 +1,7 @@
-from PyQt5.QtWidgets import QDialog, QVBoxLayout, QGroupBox, QPushButton, QHBoxLayout, QMessageBox
+from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QGroupBox, QPushButton, 
+                             QHBoxLayout, QMessageBox)
 import winreg
 import subprocess
-import logging
 from ..utils.logger import get_logger
 
 logger = get_logger(__name__)

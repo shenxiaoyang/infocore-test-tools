@@ -4,7 +4,6 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt5.QtGui import QColor, QTextCharFormat, QSyntaxHighlighter
 from ..utils.logger import get_logger
-from PyQt5.QtWidgets import QApplication
 from difflib import SequenceMatcher
 import os
 

@@ -1,17 +1,33 @@
-from PyQt5.QtWidgets import QDialog, QVBoxLayout, QGroupBox, QPushButton, QHBoxLayout, QMessageBox, QLabel, QLineEdit
+from PyQt5.QtWidgets import ( QDialog, QVBoxLayout, QGroupBox, QPushButton, 
+                             QHBoxLayout, QMessageBox, QLabel, QLineEdit, QDialog)
+from PyQt5.QtCore import QThread, pyqtSignal, QTimer
 import winreg
-import subprocess
-import logging
 import ctypes
 from ..utils.logger import get_logger
 import tempfile
 import os
 import sys
-from PyQt5.QtCore import QThread, pyqtSignal
 import time
 import shutil
 
 logger = get_logger(__name__)
+
+
+# 新增：系统缓存刷新线程
+class SyncThread(QThread):
+    finished = pyqtSignal(bool, str)
+    def run(self):
+        exe_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'resources', 'sync', 'sync.exe'))
+        try:
+            ret = ctypes.windll.shell32.ShellExecuteW(
+                None, "runas", "cmd.exe", f'/c "{exe_path}" -r -nobanner', None, 0
+            )
+            if ret > 32:
+                self.finished.emit(True, "刷新成功！")
+            else:
+                self.finished.emit(False, f"无法以管理员权限运行sync.exe，返回码：{ret}")
+        except Exception as e:
+            self.finished.emit(False, f"无法以管理员权限运行sync.exe：{str(e)}")
 
 class BcdEditQueryThread(QThread):
     result = pyqtSignal(bool, bool, str)  # testsigning_on, nointegrity_on, error_msg
@@ -198,7 +214,16 @@ class WindowsConfigDialog(QDialog):
         startup_layout.addWidget(self.register_startup_btn)
         startup_group.setLayout(startup_layout)
         layout.addWidget(startup_group)
-        
+
+        # 新增：系统缓存管理分组
+        cache_group = QGroupBox("系统缓存管理")
+        cache_layout = QVBoxLayout()
+        self.sync_btn = QPushButton("刷新系统缓存")
+        self.sync_btn.clicked.connect(self.run_sync)
+        cache_layout.addWidget(self.sync_btn)
+        cache_group.setLayout(cache_layout)
+        layout.addWidget(cache_group)
+
         # Windows系统自动登录分组
         auto_login_group = QGroupBox("Windows系统自动登录")
         auto_login_layout = QVBoxLayout()
@@ -329,7 +354,6 @@ class WindowsConfigDialog(QDialog):
             logger.error(f"Windows更新重置失败: {error_msg}")
         
         # 3秒后恢复按钮
-        from PyQt5.QtCore import QTimer
         QTimer.singleShot(3000, lambda: (
             self.update_reset_btn.setText("重置更新配置"),
             self.update_reset_btn.setEnabled(True)
@@ -430,7 +454,6 @@ class WindowsConfigDialog(QDialog):
         self.auto_login_btn.clicked.connect(self.set_auto_login)
 
     def set_auto_login(self):
-        from PyQt5.QtWidgets import QDialog
         dialog = QDialog(self)
         dialog.setWindowTitle("系统自动登录配置")
         layout = QVBoxLayout()
@@ -489,3 +512,19 @@ class WindowsConfigDialog(QDialog):
         except Exception as e:
             QMessageBox.critical(self, "取消失败", f"取消自动登录失败：{str(e)}\n请尝试以管理员身份运行程序。")
         self.check_auto_login_status()
+
+    def run_sync(self):
+        logger.info("运行sync")
+        self.sync_btn.setEnabled(False)
+        self.sync_btn.setText("正在刷新...")
+        self.sync_thread = SyncThread()
+        self.sync_thread.finished.connect(self.on_sync_finished)
+        self.sync_thread.start()
+
+    def on_sync_finished(self, success, msg):
+        if success:
+            QMessageBox.information(self, "Sync", msg)
+        else:
+            QMessageBox.warning(self, "运行sync", msg)
+        self.sync_btn.setEnabled(True)
+        self.sync_btn.setText("刷新系统缓存")

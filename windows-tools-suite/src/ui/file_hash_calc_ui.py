@@ -1,10 +1,11 @@
-from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit, QFileDialog, QCheckBox, QTextEdit, QMessageBox, QProgressBar
+from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit, QFileDialog, QCheckBox, QTextEdit, QMessageBox, QProgressBar, QTableWidget, QTableWidgetItem, QHeaderView, QWidget
 from PyQt5.QtGui import QIcon
 import hashlib
 import os
-from PyQt5.QtCore import QThread, pyqtSignal
+import pathlib
 import time
 from src.utils.logger import get_logger
+from PyQt5.QtCore import QThread, pyqtSignal
 
 logger = get_logger(__name__)
 
@@ -64,6 +65,14 @@ class FileHashCalcDialog(QDialog):
         browse_btn.setFixedSize(28, 28)
         browse_btn.clicked.connect(self.select_file)
         path_layout.addWidget(browse_btn)
+        
+        # 历史记录按钮
+        history_btn = QPushButton()
+        history_btn.setIcon(QIcon(os.path.join(os.path.dirname(__file__), '..', 'resources', 'icons', 'history.png')))
+        history_btn.setFixedSize(28, 28)
+        history_btn.setToolTip("历史记录")
+        history_btn.clicked.connect(self.show_history)
+        path_layout.addWidget(history_btn)
         layout.addLayout(path_layout)
         # 文件信息（每项一行，风格与哈希一致）
         self.size_edit = QLineEdit()
@@ -215,6 +224,26 @@ class FileHashCalcDialog(QDialog):
         self.progress_bar.setVisible(False)
         self.set_ui_busy(False)
         self.compare_hash()
+        # 写入历史记录
+        try:
+            program_data = os.environ.get('ProgramData', r'C:\ProgramData')
+            history_dir = os.path.join(program_data, 'InfoCoreTestTools')
+            history_file = os.path.join(history_dir, 'hash_history.txt')
+            pathlib.Path(history_dir).mkdir(parents=True, exist_ok=True)
+            file_path = self.path_edit.text()
+            size = self.size_edit.text()
+            md5 = self.md5_edit.text()
+            record = f"{file_path}\t{size}\t{md5}"
+            records = []
+            if os.path.exists(history_file):
+                with open(history_file, 'r', encoding='utf-8') as f:
+                    records = [line.strip() for line in f if line.strip()]
+            records.append(record)
+            records = records[-10:]
+            with open(history_file, 'w', encoding='utf-8') as f:
+                f.write('\n'.join(records) + '\n')
+        except Exception as e:
+            logger.warning(f'写入历史记录失败: {e}')
 
     def on_hash_error(self, msg):
         QMessageBox.warning(self, "计算失败", f"哈希计算失败：{msg}")
@@ -244,3 +273,99 @@ class FileHashCalcDialog(QDialog):
                 self.path_edit.setText(file_path)
                 self.show_file_info(file_path)
                 self.calc_hash_async()
+
+    def show_history(self):
+        dlg = HistoryDialog(self)
+        dlg.exec_()
+
+class HistoryDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("哈希历史记录")
+        self.max_width = 1000
+        self.min_col_width = 200
+        layout = QVBoxLayout()
+        self.table = QTableWidget()
+        self.table.setColumnCount(3)
+        self.table.setHorizontalHeaderLabels(["文件", "文件大小", "MD5"])
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.setSelectionBehavior(QTableWidget.SelectItems)
+        self.table.setSelectionMode(QTableWidget.ExtendedSelection)
+        self.table.setHorizontalScrollMode(QTableWidget.ScrollPerPixel)
+        layout.addWidget(self.table)
+        # 无历史记录图片和文字
+        from PyQt5.QtCore import Qt
+        from PyQt5.QtGui import QPixmap
+        self.empty_widget = QWidget()
+        empty_layout = QVBoxLayout()
+        empty_layout.setAlignment(Qt.AlignCenter)
+        self.empty_label_img = QLabel()
+        pixmap = QPixmap(os.path.join(os.path.dirname(__file__), '..', 'resources', 'icons', 'no_history.png'))
+        pixmap = pixmap.scaled(120, 120, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        self.empty_label_img.setPixmap(pixmap)
+        self.empty_label_img.setAlignment(Qt.AlignCenter)
+        empty_layout.addWidget(self.empty_label_img)
+        self.empty_label_text = QLabel("无历史记录")
+        self.empty_label_text.setAlignment(Qt.AlignCenter)
+        empty_layout.addWidget(self.empty_label_text)
+        self.empty_widget.setLayout(empty_layout)
+        layout.addWidget(self.empty_widget)
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch(1)
+        clear_btn = QPushButton("清除历史记录")
+        clear_btn.setFixedWidth(140)
+        clear_btn.clicked.connect(self.clear_history)
+        btn_layout.addWidget(clear_btn)
+        close_btn = QPushButton("关闭")
+        close_btn.setFixedWidth(100)
+        close_btn.clicked.connect(self.close)
+        btn_layout.addWidget(close_btn)
+        layout.addLayout(btn_layout)
+        self.setLayout(layout)
+        self.load_history()
+
+    def load_history(self):
+        program_data = os.environ.get('ProgramData', r'C:\ProgramData')
+        history_file = os.path.join(program_data, 'InfoCoreTestTools', 'hash_history.txt')
+        self.table.setRowCount(0)
+        has_data = False
+        if os.path.exists(history_file):
+            with open(history_file, 'r', encoding='utf-8') as f:
+                for row_idx, line in enumerate(f):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    fields = line.split('\t')
+                    self.table.insertRow(row_idx)
+                    for col, val in enumerate(fields):
+                        self.table.setItem(row_idx, col, QTableWidgetItem(val))
+                    has_data = True
+        # 控件显示切换
+        self.table.setVisible(has_data)
+        self.empty_widget.setVisible(not has_data)
+        # 设置列宽和窗口宽度
+        if has_data:
+            self.table.resizeColumnsToContents()
+            total_width = sum([self.table.columnWidth(i) for i in range(self.table.columnCount())])
+            total_width = min(total_width + 60, self.max_width)
+            self.resize(total_width, 400)
+        else:
+            for i in range(self.table.columnCount()):
+                self.table.setColumnWidth(i, self.min_col_width)
+            self.resize(self.min_col_width * self.table.columnCount() + 60, 400)
+
+    def clear_history(self):
+        program_data = os.environ.get('ProgramData', r'C:\ProgramData')
+        history_file = os.path.join(program_data, 'InfoCoreTestTools', 'hash_history.txt')
+        try:
+            if os.path.exists(history_file):
+                os.remove(history_file)
+            self.table.setRowCount(0)
+            self.table.setVisible(False)
+            self.empty_widget.setVisible(True)
+            for i in range(self.table.columnCount()):
+                self.table.setColumnWidth(i, self.min_col_width)
+            self.resize(self.min_col_width * self.table.columnCount() + 60, 400)
+        except Exception as e:
+            QMessageBox.warning(self, "错误", f"清除历史记录失败: {e}")

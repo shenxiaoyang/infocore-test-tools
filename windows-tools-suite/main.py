@@ -1,8 +1,8 @@
 import sys
 import os
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
-                           QPushButton, QLabel, QFrame, QMessageBox, QHBoxLayout, QSizePolicy, QGridLayout)
-from PyQt5.QtCore import Qt
+                           QPushButton, QLabel, QFrame, QMessageBox, QHBoxLayout, QSizePolicy, QGridLayout, QDialog, QVBoxLayout as QVBoxLayout2, QHBoxLayout as QHBoxLayout2)
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QIcon
 from src.ui.md5_calculator_ui import MD5CalculatorUI
 from src.ui.file_compare_ui import FileCompareUI
@@ -14,6 +14,59 @@ import winreg
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+class AutoExecDialog(QDialog):
+    """自动执行倒计时对话框"""
+    def __init__(self, parent=None, modules=None):
+        super().__init__(parent)
+        self.modules = modules or []
+        self.setWindowTitle("自动执行模块")
+        self.setFixedSize(400, 200)
+        self.setModal(True)
+        self.countdown = 10
+        self.init_ui()
+        self.start_countdown()
+        
+    def init_ui(self):
+        layout = QVBoxLayout2()
+        
+        # 显示要执行的模块
+        modules_text = "\n".join([f"• {module}" for module in self.modules])
+        label = QLabel(f"即将自动执行以下模块：\n{modules_text}\n\n{self.countdown}秒后开始执行...")
+        label.setWordWrap(True)
+        layout.addWidget(label)
+        
+        # 按钮布局
+        btn_layout = QHBoxLayout2()
+        ok_btn = QPushButton("立即执行")
+        cancel_btn = QPushButton("取消")
+        btn_layout.addWidget(ok_btn)
+        btn_layout.addWidget(cancel_btn)
+        layout.addLayout(btn_layout)
+        
+        self.setLayout(layout)
+        
+        ok_btn.clicked.connect(self.accept)
+        cancel_btn.clicked.connect(self.reject)
+        
+    def start_countdown(self):
+        """开始倒计时"""
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_countdown)
+        self.timer.start(1000)
+        
+    def update_countdown(self):
+        """更新倒计时"""
+        self.countdown -= 1
+        if self.countdown <= 0:
+            self.timer.stop()
+            self.accept()
+        else:
+            # 更新标签文本
+            label = self.findChild(QLabel)
+            if label:
+                modules_text = "\n".join([f"• {module}" for module in self.modules])
+                label.setText(f"即将自动执行以下模块：\n{modules_text}\n\n{self.countdown}秒后开始执行...")
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -245,6 +298,16 @@ class MainWindow(QMainWindow):
         system_config_btn.leaveEvent = lambda e: self.update_subtitle("便捷实用的Windows工具箱")
         tools_grid.addWidget(system_config_btn, 6, 0, 1, 2)
 
+        # 新增：工具集配置按钮
+        software_config_btn = QPushButton("工具集配置")
+        software_config_btn.setMinimumHeight(30)
+        software_config_btn.setStyleSheet(self.btn_style)
+        software_config_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        software_config_btn.clicked.connect(self.open_software_config)
+        software_config_btn.enterEvent = lambda e: self.update_subtitle("工具集相关配置和自启设置")
+        software_config_btn.leaveEvent = lambda e: self.update_subtitle("便捷实用的Windows工具箱")
+        tools_grid.addWidget(software_config_btn, 7, 0, 1, 2)
+
         # 用QWidget包裹GridLayout，便于加到主layout
         tools_widget = QWidget()
         tools_widget.setLayout(tools_grid)
@@ -268,89 +331,87 @@ class MainWindow(QMainWindow):
         # 减小底部弹性空间
         layout.addStretch(0)
         
-        self._check_and_auto_run_filegen()
+        # 检查自动执行配置
+        self.check_auto_exec_config()
     
-    def _check_and_auto_run_filegen(self):
-        exe_dir = os.path.dirname(sys.argv[0])
-        config_path = os.path.join(exe_dir, "filegen_config.yaml")
-        if os.path.exists(config_path):
-            # 如果是autorun, 需要检查客户端是否已保护，未保护的情况系下直接返回不自动执行文件产生器
-            if is_autorun():
-                # 检查Protected值
-                try:
-                    key = winreg.OpenKey(
-                        winreg.HKEY_LOCAL_MACHINE,
-                        r"SYSTEM\\CurrentControlSet\\Services\\OsnCliService\\Parameters"
-                    )
-                    protected, _ = winreg.QueryValueEx(key, "Protected")
-                    winreg.CloseKey(key)
-                    if str(protected).lower() == "false":
-                        self.logger.info("Protected值为false，不执行文件产生器")
-                        return
-                    self.logger.info("Protected值为true，继续执行")
-                except Exception:
-                    self.logger.error("Protected值不存在，继续执行")
-                    pass  # 没有该项默认继续
-            # 继续原有逻辑
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config = yaml.safe_load(f)
-            self._show_filegen_auto_dialog(config)
+    def check_auto_exec_config(self):
+        """检查自动执行配置"""
+        program_data = os.environ.get('ProgramData', r'C:\ProgramData')
+        config_dir = os.path.join(program_data, "InfoCoreTestTools")
+        config_file = os.path.join(config_dir, "auto_exec_config.yaml")
+        
+        if os.path.exists(config_file):
+            try:
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    config = yaml.safe_load(f)
+                    if config:
+                        # 检查是否仅在本地应急时执行
+                        emergency_only = config.get('emergency_only', False)
+                        if emergency_only:
+                            # 检查客户端保护状态
+                            try:
+                                key = winreg.OpenKey(
+                                    winreg.HKEY_LOCAL_MACHINE,
+                                    r"SYSTEM\\CurrentControlSet\\Services\\OsnCliService\\Parameters"
+                                )
+                                protected, _ = winreg.QueryValueEx(key, "Protected")
+                                winreg.CloseKey(key)
+                                
+                                # 如果Protected值为true（已保护），则不执行自动模块
+                                if str(protected).lower() == "true":
+                                    logger.info("客户端已保护，跳过自动执行模块")
+                                    return
+                                logger.info("客户端未保护，继续执行自动模块")
+                            except FileNotFoundError:
+                                # 如果注册表键值不存在，判断为未保护状态
+                                logger.info("注册表键值不存在，判断为未保护状态，继续执行自动模块")
+                            except Exception as e:
+                                logger.error(f"检查客户端保护状态失败: {str(e)}")
+                                # 如果检查失败，默认不执行
+                                return
+                        
+                        modules_to_exec = []
+                        
+                        # 检查快速计算系统盘
+                        if config.get('auto_system_disk', False):
+                            modules_to_exec.append("快速计算系统盘")
+                        
+                        # 检查本地文件产生器
+                        if config.get('auto_filegen', False):
+                            filegen_config = os.path.join(config_dir, "filegen_config.yaml")
+                            if os.path.exists(filegen_config):
+                                modules_to_exec.append("本地文件产生器")
+                        
+                        # 检查文件校验
+                        if config.get('auto_fileverify', False):
+                            fileverify_config = os.path.join(config_dir, "fileverify_config.yaml")
+                            if os.path.exists(fileverify_config):
+                                modules_to_exec.append("文件校验")
+                        
+                        if modules_to_exec:
+                            # 显示倒计时对话框
+                            dialog = AutoExecDialog(self, modules_to_exec)
+                            if dialog.exec_() == QDialog.Accepted:
+                                self.execute_auto_modules(modules_to_exec)
+                                
+            except Exception as e:
+                logger.error(f"读取自动执行配置失败: {str(e)}")
 
-    def _show_filegen_auto_dialog(self, config):
-        logger.info("显示文件产生器自动恢复对话框")
-        from PyQt5.QtWidgets import QMessageBox, QDialog, QVBoxLayout, QLabel, QPushButton, QHBoxLayout
-        from PyQt5.QtCore import QTimer
-        dialog = QDialog(self)
-        dialog.setWindowTitle("自动恢复文件产生器")
-        layout = QVBoxLayout()
-        label = QLabel("检测到上次保存的文件产生器配置，是否自动恢复并开始执行？\n5秒后将自动开始。\n\n配置文件路径: filegen_config.yaml")
-        layout.addWidget(label)
-        btn_layout = QHBoxLayout()
-        ok_btn = QPushButton("确定")
-        cancel_btn = QPushButton("取消")
-        btn_layout.addWidget(ok_btn)
-        btn_layout.addWidget(cancel_btn)
-        layout.addLayout(btn_layout)
-        dialog.setLayout(layout)
-        timer = QTimer(dialog)
-        timer.setInterval(1000)
-        self._countdown = 5
-        def update_label():
-            self._countdown -= 1
-            label.setText(f"检测到上次保存的文件产生器配置，是否自动恢复并开始执行？\n{self._countdown}秒后将自动开始。\n\n配置文件路径: filegen_config.yaml")
-            if self._countdown <= 0:
-                timer.stop()
-                dialog.accept()
-        timer.timeout.connect(update_label)
-        timer.start()
-        ok_btn.clicked.connect(lambda: (timer.stop(), dialog.accept()))
-        cancel_btn.clicked.connect(lambda: (timer.stop(), dialog.reject()))
-        if dialog.exec_() == QDialog.Accepted:
-            self._auto_open_filegen_with_config(config)
-
-    def _auto_open_filegen_with_config(self, config):
-        logger.info("自动打开文件产生器")
-        # 打开文件产生器窗口并自动填充参数并开始
-        if self.file_generator_window is None or not self.file_generator_window.isVisible():
-            self.file_generator_window = FileGeneratorUI()
-        ui = self.file_generator_window
-        # 设置参数
-        ui.dir_edit.setText(config.get('target_dir', ''))
-        ui.size_min.setText(str(config.get('file_size_min', '')))
-        ui.size_max.setText(str(config.get('file_size_max', '')))
-        ui.size_unit.setCurrentText(config.get('file_size_min_unit', 'KB'))
-        ui.size_unit2.setCurrentText(config.get('file_size_max_unit', 'KB'))
-        mode = config.get('mode', '单次')
-        if mode == '循环':
-            ui.loop_mode.setChecked(True)
-        else:
-            ui.single_mode.setChecked(True)
-        ui.limit_edit.setText(str(config.get('max_files', '')))
-        ui.interval_edit.setText(str(config.get('interval', '')))
-        # 强制置顶再恢复
-        ui.show()
-        # 自动开始
-        threading.Timer(0.5, ui.start_generation).start()
+    def execute_auto_modules(self, modules):
+        """执行自动模块"""
+        for module in modules:
+            if module == "快速计算系统盘":
+                self.open_system_disk_calculator()
+            elif module == "本地文件产生器":
+                self.open_file_generator()
+                # 延迟0.5秒后自动开始文件产生
+                if self.file_generator_window:
+                    threading.Timer(0.5, self.file_generator_window.start_generation).start()
+            elif module == "文件校验":
+                self.open_file_verify()
+                # 延迟0.5秒后自动开始文件校验
+                if self.file_verify_window:
+                    threading.Timer(0.5, self.file_verify_window.start_verify).start()
 
     def open_md5_calculator(self):
         """打开MD5计算器窗口（单例模式）"""
@@ -437,22 +498,20 @@ class MainWindow(QMainWindow):
         dialog = WindowsConfigDialog(self)
         dialog.exec_()
 
+    def open_software_config(self):
+        from src.ui.software_config_ui import SoftwareConfigDialog
+        dialog = SoftwareConfigDialog(self)
+        dialog.exec_()
+
     def update_subtitle(self, text):
         """更新副标题文本"""
         self.subtitle.setText(text)
-
-def is_autorun():
-    return "autorun" in sys.argv
 
 def main():
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
-    if is_autorun():
-        logger.info("以自启动方式运行（带autorun参数）")
-        # 可在此处添加自动恢复、自动弹窗等逻辑
-    else:
-        logger.info("以手动方式运行")
+    logger.info("以手动方式运行")
     sys.exit(app.exec_())
 
 if __name__ == "__main__":

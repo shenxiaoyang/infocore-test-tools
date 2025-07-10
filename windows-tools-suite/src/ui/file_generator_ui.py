@@ -124,6 +124,7 @@ class FileGeneratorUI(QWidget):
         self.current_progress = 0  # 添加当前进度记录
         logger.info("初始化文件生成器UI")
         self.initUI()
+        self.check_config_status()  # 检查配置文件状态
         
     def initUI(self):
         self.setWindowTitle('本地文件产生器')
@@ -380,8 +381,6 @@ class FileGeneratorUI(QWidget):
         self.save_config_btn.setStyleSheet(self.btn_style['blue'])
         self.save_config_btn.clicked.connect(self.save_config)
         
-
-        
         self.start_btn.clicked.connect(self.start_generation)
         self.pause_btn.clicked.connect(self.pause_generation)
         self.stop_btn.clicked.connect(self.stop_generation)
@@ -433,8 +432,72 @@ class FileGeneratorUI(QWidget):
         
         status_group.setLayout(status_layout)
         layout.addWidget(status_group)
-        
 
+    def check_config_status(self):
+        """检查配置文件状态并更新按钮"""
+        program_data = os.environ.get('ProgramData', r'C:\ProgramData')
+        config_dir = os.path.join(program_data, "InfoCoreTestTools")
+        config_file = os.path.join(config_dir, "filegen_config.yaml")
+        
+        if os.path.exists(config_file):
+            # 配置文件存在，按钮显示为"取消配置"
+            self.save_config_btn.setText("取消配置")
+            self.save_config_btn.setStyleSheet(self.btn_style['red'])
+            # 断开原有连接，连接到取消配置方法
+            try:
+                self.save_config_btn.clicked.disconnect()
+            except Exception:
+                pass
+            self.save_config_btn.clicked.connect(self.delete_config)
+            
+            # 加载配置文件内容到界面
+            try:
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    config = yaml.safe_load(f)
+                    if config:
+                        self.dir_edit.setText(config.get('target_dir', ''))
+                        self.size_min.setText(str(config.get('file_size_min', '1')))
+                        self.size_max.setText(str(config.get('file_size_max', '10')))
+                        self.size_unit.setCurrentText(config.get('file_size_min_unit', 'MB'))
+                        self.size_unit2.setCurrentText(config.get('file_size_max_unit', 'MB'))
+                        mode = config.get('mode', '单次')
+                        if mode == '循环':
+                            self.loop_mode.setChecked(True)
+                        else:
+                            self.single_mode.setChecked(True)
+                        self.limit_edit.setText(str(config.get('max_files', '1000')))
+                        self.interval_edit.setText(str(config.get('interval', '0.01')))
+                        logger.info(f"配置文件加载成功：{config}")
+            except Exception as e:
+                logger.error(f"加载配置文件失败: {str(e)}")
+                QMessageBox.warning(self, "警告", f"加载配置文件失败：{str(e)}")
+        else:
+            # 配置文件不存在，按钮显示为"保存配置"
+            self.save_config_btn.setText("保存配置")
+            self.save_config_btn.setStyleSheet(self.btn_style['blue'])
+            # 断开原有连接，连接到保存配置方法
+            try:
+                self.save_config_btn.clicked.disconnect()
+            except Exception:
+                pass
+            self.save_config_btn.clicked.connect(self.save_config)
+
+    def delete_config(self):
+        """删除配置文件"""
+        program_data = os.environ.get('ProgramData', r'C:\ProgramData')
+        config_dir = os.path.join(program_data, "InfoCoreTestTools")
+        config_file = os.path.join(config_dir, "filegen_config.yaml")
+        
+        try:
+            if os.path.exists(config_file):
+                os.remove(config_file)
+                QMessageBox.information(self, "删除成功", "配置文件已删除！")
+                # 更新按钮状态
+                self.check_config_status()
+            else:
+                QMessageBox.information(self, "无需操作", "配置文件不存在。")
+        except Exception as e:
+            QMessageBox.critical(self, "删除失败", f"删除配置文件失败：{str(e)}")
         
     def select_directory(self):
         """选择目标目录"""
@@ -735,9 +798,22 @@ class FileGeneratorUI(QWidget):
             'max_files': self.limit_edit.text(),
             'interval': self.interval_edit.text(),
         }
-        exe_dir = os.path.dirname(sys.argv[0])
-        file_path = os.path.join(exe_dir, "filegen_config.yaml")
-        with open(file_path, 'w', encoding='utf-8') as f:
-            yaml.safe_dump(config, f, allow_unicode=True)
-        QMessageBox.information(self, "保存成功", f"配置已保存到: {file_path}")
+        # 创建配置目录
+        program_data = os.environ.get('ProgramData', r'C:\ProgramData')
+        config_dir = os.path.join(program_data, "InfoCoreTestTools")
+        try:
+            os.makedirs(config_dir, exist_ok=True)
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"创建配置目录失败：{str(e)}")
+            return
+        
+        file_path = os.path.join(config_dir, "filegen_config.yaml")
+        try:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                yaml.safe_dump(config, f, allow_unicode=True)
+            QMessageBox.information(self, "保存成功", "配置已保存成功！")
+            # 更新按钮状态
+            self.check_config_status()
+        except Exception as e:
+            QMessageBox.critical(self, "保存失败", f"保存配置文件失败：{str(e)}")
 

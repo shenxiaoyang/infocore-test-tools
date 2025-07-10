@@ -25,6 +25,15 @@ class HostAgentConfigDialog(QDialog):
         eim_layout.addWidget(self.log_btn)
         eim_group.setLayout(eim_layout)
         layout.addWidget(eim_group)
+
+        # 新增：程序文件签名检查QGroupBox
+        sig_group = QGroupBox("程序文件签名检查")
+        sig_layout = QHBoxLayout()
+        self.signature_btn = QPushButton("打开签名检查")
+        self.signature_btn.clicked.connect(self.open_signature_checker)
+        sig_layout.addWidget(self.signature_btn)
+        sig_group.setLayout(sig_layout)
+        layout.addWidget(sig_group)
         
         # 预留后续模块分块
         layout.addStretch()
@@ -76,3 +85,15 @@ class HostAgentConfigDialog(QDialog):
             QMessageBox.warning(self, "权限不足", "修改注册表需要管理员权限！")
         except Exception as e:
             QMessageBox.warning(self, "操作失败", f"操作注册表时出错：{e}")
+
+    def open_signature_checker(self):
+        from src.utils.logger import get_logger
+        logger = get_logger(__name__)
+        try:
+            logger.info("尝试打开SignatureCheckerDialog")
+            from .signature_checker_dialog import SignatureCheckerDialog
+            dlg = SignatureCheckerDialog(self)
+            dlg.exec_()
+            logger.info("SignatureCheckerDialog已关闭")
+        except Exception as e:
+            logger.error(f"打开SignatureCheckerDialog异常: {e}", exc_info=True)

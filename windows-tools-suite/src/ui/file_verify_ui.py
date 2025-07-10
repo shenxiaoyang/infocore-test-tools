@@ -1,11 +1,12 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                           QLabel, QFileDialog, QLineEdit, QFrame, QGroupBox, QProgressBar)
+                           QLabel, QFileDialog, QLineEdit, QFrame, QGroupBox, QProgressBar, QMessageBox)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 import os
 import hashlib
 from ..utils.logger import get_logger
 from datetime import datetime
 import sys
+import yaml
 
 # 配置日志
 logger = get_logger(__name__)
@@ -140,6 +141,7 @@ class FileVerifyUI(QWidget):
         self.worker = None
         logger.info("初始化文件校验器UI")
         self.initUI()
+        self.check_config_status()  # 检查配置文件状态
         
     def initUI(self):
         self.setWindowTitle('文件校验器')
@@ -266,6 +268,20 @@ class FileVerifyUI(QWidget):
                 QPushButton:disabled {
                     background-color: #CCCCCC;
                 }
+            """,
+            'blue': """
+                QPushButton {
+                    background-color: #2196F3;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                }
+                QPushButton:hover {
+                    background-color: #1976D2;
+                }
+                QPushButton:pressed {
+                    background-color: #1565C0;
+                }
             """
         }
         
@@ -283,6 +299,11 @@ class FileVerifyUI(QWidget):
         self.stop_btn.setStyleSheet(self.btn_style['gray'])
         self.stop_btn.setEnabled(False)
         
+        self.save_config_btn = QPushButton("保存配置")
+        self.save_config_btn.setFixedWidth(80)
+        self.save_config_btn.setStyleSheet(self.btn_style['blue'])
+        self.save_config_btn.clicked.connect(self.save_config)
+        
         self.start_btn.clicked.connect(self.start_verify)
         self.pause_btn.clicked.connect(self.pause_verify)
         self.stop_btn.clicked.connect(self.stop_verify)
@@ -291,6 +312,7 @@ class FileVerifyUI(QWidget):
         btn_layout.addWidget(self.start_btn)
         btn_layout.addWidget(self.pause_btn)
         btn_layout.addWidget(self.stop_btn)
+        btn_layout.addWidget(self.save_config_btn)
         btn_layout.addStretch()
         
         btn_group.setLayout(btn_layout)
@@ -505,3 +527,87 @@ class FileVerifyUI(QWidget):
         """校验完成的处理"""
         self.set_initial_state()
         self.dir_edit.setEnabled(True)
+
+    def check_config_status(self):
+        """检查配置文件状态并更新按钮"""
+        program_data = os.environ.get('ProgramData', r'C:\ProgramData')
+        config_dir = os.path.join(program_data, "InfoCoreTestTools")
+        config_file = os.path.join(config_dir, "fileverify_config.yaml")
+        
+        if os.path.exists(config_file):
+            # 配置文件存在，按钮显示为"取消配置"
+            self.save_config_btn.setText("取消配置")
+            self.save_config_btn.setStyleSheet(self.btn_style['red'])
+            # 断开原有连接，连接到取消配置方法
+            try:
+                self.save_config_btn.clicked.disconnect()
+            except Exception:
+                pass
+            self.save_config_btn.clicked.connect(self.delete_config)
+            
+            # 加载配置文件内容到界面
+            try:
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    config = yaml.safe_load(f)
+                    if config:
+                        self.dir_edit.setText(config.get('target_dir', ''))
+                        logger.info(f"配置文件加载成功：{config}")
+            except Exception as e:
+                logger.error(f"加载配置文件失败: {str(e)}")
+                QMessageBox.warning(self, "警告", f"加载配置文件失败：{str(e)}")
+        else:
+            # 配置文件不存在，按钮显示为"保存配置"
+            self.save_config_btn.setText("保存配置")
+            self.save_config_btn.setStyleSheet(self.btn_style['blue'])
+            # 断开原有连接，连接到保存配置方法
+            try:
+                self.save_config_btn.clicked.disconnect()
+            except Exception:
+                pass
+            self.save_config_btn.clicked.connect(self.save_config)
+
+    def save_config(self):
+        """保存配置文件"""
+        if not self.dir_edit.text():
+            QMessageBox.warning(self, "警告", "请先选择目标目录后再保存配置！")
+            return
+        
+        config = {
+            'target_dir': self.dir_edit.text(),
+        }
+        
+        # 创建配置目录
+        program_data = os.environ.get('ProgramData', r'C:\ProgramData')
+        config_dir = os.path.join(program_data, "InfoCoreTestTools")
+        try:
+            os.makedirs(config_dir, exist_ok=True)
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"创建配置目录失败：{str(e)}")
+            return
+        
+        file_path = os.path.join(config_dir, "fileverify_config.yaml")
+        try:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                yaml.safe_dump(config, f, allow_unicode=True)
+            QMessageBox.information(self, "保存成功", "配置已保存成功！")
+            # 更新按钮状态
+            self.check_config_status()
+        except Exception as e:
+            QMessageBox.critical(self, "保存失败", f"保存配置文件失败：{str(e)}")
+
+    def delete_config(self):
+        """删除配置文件"""
+        program_data = os.environ.get('ProgramData', r'C:\ProgramData')
+        config_dir = os.path.join(program_data, "InfoCoreTestTools")
+        config_file = os.path.join(config_dir, "fileverify_config.yaml")
+        
+        try:
+            if os.path.exists(config_file):
+                os.remove(config_file)
+                QMessageBox.information(self, "删除成功", "配置文件已删除！")
+                # 更新按钮状态
+                self.check_config_status()
+            else:
+                QMessageBox.information(self, "无需操作", "配置文件不存在。")
+        except Exception as e:
+            QMessageBox.critical(self, "删除失败", f"删除配置文件失败：{str(e)}")

@@ -172,7 +172,6 @@ class WindowsConfigDialog(QDialog):
         self.update_reset_thread = None
         self.init_ui()
         self.refresh_sign_btn()
-        self.check_startup_status()
         self.check_auto_login_status()
 
     def init_ui(self):
@@ -206,15 +205,6 @@ class WindowsConfigDialog(QDialog):
         update_group.setLayout(update_layout)
         layout.addWidget(update_group)
         
-        # 软件自启注册分组
-        startup_group = QGroupBox("本软件自启注册")
-        startup_layout = QVBoxLayout()
-        self.register_startup_btn = QPushButton()
-        self.register_startup_btn.clicked.connect(self.register_startup)
-        startup_layout.addWidget(self.register_startup_btn)
-        startup_group.setLayout(startup_layout)
-        layout.addWidget(startup_group)
-
         # 新增：系统缓存管理分组
         cache_group = QGroupBox("系统缓存管理")
         cache_layout = QVBoxLayout()
@@ -358,75 +348,6 @@ class WindowsConfigDialog(QDialog):
             self.update_reset_btn.setText("重置更新配置"),
             self.update_reset_btn.setEnabled(True)
         ))
-
-    def check_startup_status(self):
-        try:
-            key = winreg.OpenKey(
-                winreg.HKEY_CURRENT_USER,
-                r"Software\\Microsoft\\Windows\\CurrentVersion\\Run"
-            )
-            value, _ = winreg.QueryValueEx(key, "EIMFilegen")
-            winreg.CloseKey(key)
-            # 检查是否带autorun参数
-            if "autorun" in value:
-                self.register_startup_btn.setText("取消开机自启")
-                try:
-                    self.register_startup_btn.clicked.disconnect()
-                except Exception:
-                    pass
-                self.register_startup_btn.clicked.connect(self.unregister_startup)
-            else:
-                self.register_startup_btn.setText("注册自启")
-                try:
-                    self.register_startup_btn.clicked.disconnect()
-                except Exception:
-                    pass
-                self.register_startup_btn.clicked.connect(self.register_startup)
-        except FileNotFoundError:
-            self.register_startup_btn.setText("注册自启")
-            try:
-                self.register_startup_btn.clicked.disconnect()
-            except Exception:
-                pass
-            self.register_startup_btn.clicked.connect(self.register_startup)
-        except Exception:
-            self.register_startup_btn.setText("注册自启")
-            try:
-                self.register_startup_btn.clicked.disconnect()
-            except Exception:
-                pass
-            self.register_startup_btn.clicked.connect(self.register_startup)
-
-    def register_startup(self):
-        exe_path = os.path.abspath(sys.argv[0])
-        autorun_cmd = f'"{exe_path}" autorun'  # 加autorun参数
-        try:
-            key = winreg.CreateKey(
-                winreg.HKEY_CURRENT_USER,
-                r"Software\\Microsoft\\Windows\\CurrentVersion\\Run"
-            )
-            winreg.SetValueEx(key, "EIMFilegen", 0, winreg.REG_SZ, autorun_cmd)
-            winreg.CloseKey(key)
-            QMessageBox.information(self, "注册成功", f"已注册开机自启：{autorun_cmd}")
-        except Exception as e:
-            QMessageBox.critical(self, "注册失败", f"注册开机自启失败：{str(e)}")
-        self.check_startup_status()
-
-    def unregister_startup(self):
-        try:
-            key = winreg.OpenKey(
-                winreg.HKEY_CURRENT_USER,
-                r"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
-                0, winreg.KEY_SET_VALUE
-            )
-            winreg.DeleteValue(key, "EIMFilegen")
-            winreg.CloseKey(key)
-            QMessageBox.information(self, "取消成功", "已取消开机自启。")
-        except FileNotFoundError:
-            QMessageBox.information(self, "无需操作", "未设置开机自启。")
-        except Exception as e:
-            QMessageBox.critical(self, "取消失败", f"取消开机自启失败：{str(e)}")
-        self.check_startup_status()
 
     def check_auto_login_status(self):
         try:

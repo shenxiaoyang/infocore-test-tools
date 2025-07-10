@@ -75,6 +75,15 @@ class ToolsDialog(QDialog):
         vmmap_group.setLayout(vmmap_layout)
         layout.addWidget(vmmap_group)
 
+        # 新增：程序DLL依赖查看器分组
+        depends_group = QGroupBox("程序DLL依赖查看器")
+        depends_layout = QHBoxLayout()
+        depends_btn = QPushButton("打开depends")
+        depends_btn.clicked.connect(self.open_depends)
+        depends_layout.addWidget(depends_btn)
+        depends_group.setLayout(depends_layout)
+        layout.addWidget(depends_group)
+
         self.setLayout(layout)
 
     def open_diskprobe(self):
@@ -133,3 +142,12 @@ class ToolsDialog(QDialog):
                 QMessageBox.warning(self, "打开VmMap", f"无法以管理员权限打开VmMap，返回码：{ret}")
         except Exception as e:
             QMessageBox.warning(self, "打开VmMap", f"无法以管理员权限打开VmMap：{str(e)}")
+
+    def open_depends(self):
+        logger.info("打开depends")
+        exe_path = os.path.join(os.path.dirname(__file__), '..', 'resources', 'depends', 'depends.exe')
+        exe_path = os.path.abspath(exe_path)
+        try:
+            os.startfile(exe_path)
+        except Exception as e:
+            QMessageBox.warning(self, "打开depends", f"无法打开depends：{str(e)}")

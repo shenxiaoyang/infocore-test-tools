@@ -78,22 +78,29 @@ if __name__ == "__main__":
             else:
                 arch_dir = arch  # 兜底
 
-            exe_name = f"Windows工具集-v{new_version}.exe"
-            rename_exe_name = f"Windows工具集-v{new_version}-{arch_dir}.exe"
-            exe_path = os.path.join(current_dir, 'dist', exe_name)
+            exe_name_origin = f"Windows工具集-v{new_version}.exe"
+            exe_name_with_arch = f"Windows工具集-v{new_version}-{arch_dir}.exe"
+            exe_path_origin = os.path.join(current_dir, 'dist', exe_name_origin)
+            exe_path_with_arch = os.path.join(current_dir, 'dist', exe_name_with_arch)
             changelog_path = os.path.join(current_dir, 'changelog.md')
             patch_md_path = os.path.join(current_dir, 'patch.md')
 
             # 拼接目标路径
-            target_dir = r'\\192.168.1.20\测试部（日志和iso）\软件类\自研\Windows工具集'
-            target_exe_dir = r'\\192.168.1.20\测试部（日志和iso）\软件类\自研\Windows工具集\{}'.format(arch_dir)
-            target_path = os.path.join(target_exe_dir, rename_exe_name)
-            target_path_str = target_path.replace('\\', '\\\\')
-            changelog_target_path = os.path.join(target_dir, 'changelog.md')
+            shared_dir = r'\\192.168.1.20\测试部（日志和iso）\软件类\自研\Windows工具集'
+            shared_arch_dir = os.path.join(shared_dir, arch_dir)
+            shared_exe_path = os.path.join(shared_arch_dir, exe_name_with_arch)
+            shared_changelog_path = os.path.join(shared_dir, 'changelog.md')
 
             try:
-                shutil.copy(exe_path, target_path)
-                print(f"已将 {exe_name} 拷贝到 {target_path}")
+                # 先重命名本地exe
+                if os.path.exists(exe_path_with_arch):
+                    os.remove(exe_path_with_arch)
+                os.rename(exe_path_origin, exe_path_with_arch)
+                print(f"已将本地 {exe_name_origin} 重命名为 {exe_name_with_arch}")
+
+                # 拷贝到共享目录
+                shutil.copy(exe_path_with_arch, shared_exe_path)
+                print(f"已将 {exe_name_with_arch} 拷贝到 {shared_exe_path}")
                 
                 if arch_dir == 'x64':
                     # 合并 patch.md 到 changelog.md 顶部
@@ -124,18 +131,19 @@ if __name__ == "__main__":
                     except Exception as ce:
                         print(f'patch.md 合并到 changelog 失败: {ce}')
 
-                    shutil.copy(changelog_path, changelog_target_path)
-                    print(f"已将 {changelog_path} 拷贝到 {changelog_target_path}")
+                    shutil.copy(changelog_path, shared_changelog_path)
+                    print(f"已将 {changelog_path} 拷贝到 {shared_changelog_path}")
                 
                 # 发送企业微信消息
                 webhook_url = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=30bd8711-f692-4b71-8953-66ae6f6cd058"
+                shared_exe_path_str = shared_exe_path.replace('\\', '\\\\')
                 msg = {
                     "msgtype": "markdown",
                     "markdown": {
                         "content": (
                             f"# 🎉 Windows工具集更新\n\n"
                             f"> 版本号： v{new_version}\n"
-                            f"> 路径：{target_path_str}\n"
+                            f"> 路径：{shared_exe_path_str}\n"
                         )
                     }
                 }
@@ -148,7 +156,7 @@ if __name__ == "__main__":
                 except Exception as we:
                     print(f"企业微信通知异常: {we}")
             except Exception as e:
-                print(f"拷贝到共享目录失败: {e}")
+                print(f"拷贝到共享目录或重命名失败: {e}")
         else:
             print(f"执行失败，错误码: {result}")
     except Exception as e:

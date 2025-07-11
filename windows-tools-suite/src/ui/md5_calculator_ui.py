@@ -33,23 +33,30 @@ class MD5CalculatorWorker(QThread):
     
     def run(self):
         try:
-            # 遍历所有目录
-            for directory in self.directories:
-                if not self.is_running:
-                    self.logger.info("计算被用户终止")
-                    break
-                    
-                self.logger.info(f"开始处理目录: {directory}")
-                self.progress.emit(f"正在处理目录: {directory}")
+            if not self.is_running:
+                self.logger.info("计算被用户终止")
+                return
+            
+            if len(self.directories) == 0:
+                self.logger.info("没有目录需要处理")
+                return
+            
+            # 判断directories是否是列表
+            if not isinstance(self.directories, list):
+                self.logger.error("directories必须是列表")
+                return
                 
-                # scan_directory 方法会自动保存结果并返回输出文件路径
-                output_file = self.calculator.scan_directory(
-                    directory, 
-                    self.extensions, 
-                    self.exclude_hours, 
-                    self.exclude_keywords,
-                    self.time_type
-                )
+            self.logger.info(f"开始处理 {len(self.directories)} 个目录")
+            self.progress.emit(f"开始处理 {len(self.directories)} 个目录")
+            
+            # 一次性传递所有目录给scan_directory方法
+            output_file = self.calculator.scan_directory(
+                self.directories, 
+                self.extensions, 
+                self.exclude_hours, 
+                self.exclude_keywords,
+                self.time_type
+            )
             
             if self.is_running:  # 只在运行状态下发送完成信号
                 self.logger.info("所有目录处理完成")

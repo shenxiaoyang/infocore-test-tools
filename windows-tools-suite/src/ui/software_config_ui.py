@@ -20,6 +20,12 @@ class SoftwareConfigDialog(QDialog):
         # 软件自启注册分组
         startup_group = QGroupBox("本软件开机自启注册")
         startup_layout = QVBoxLayout()
+        
+        # 添加说明文案
+        startup_note = QLabel("注意：因为Windows限制，即使注册自启后，也需要界面登录才能自动打开软件。建议打开Windows自动登录功能，这样就可实现开机后自动打开软件。Windows自动登录功能请往 [Windows系统配置] -> [Windows系统自动登录]中配置。")
+        startup_note.setWordWrap(True)
+        startup_layout.addWidget(startup_note)
+        
         self.register_startup_btn = QPushButton()
         self.register_startup_btn.clicked.connect(self.register_startup)
         startup_layout.addWidget(self.register_startup_btn)

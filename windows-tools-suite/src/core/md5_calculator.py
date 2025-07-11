@@ -146,7 +146,7 @@ class MD5Calculator:
             self.logger.error(f"保存record记录失败: {str(e)}")
             raise
     
-    def scan_directory(self, directory, extensions, exclude_hours=4, exclude_keywords=[], time_type='modified'):
+    def scan_directory(self, directories, extensions, exclude_hours=4, exclude_keywords=[], time_type='modified'):
         start_time = time.time()
         results = {}
         total_scanned = 0
@@ -159,138 +159,139 @@ class MD5Calculator:
         
         # 检查是否包含通配符
         match_all = '*' in [ext.strip() for ext in extensions]
+
+        for directory in directories:
+            self.current_directory = directory
+            self.logger.info(f"开始扫描目录: {directory}")
+            self.logger.info(f"文件扩展名过滤: {'所有文件' if match_all else ', '.join(extensions)}")
+            self.logger.info(exclude_keywords)
         
-        self.current_directory = directory
-        self.logger.info(f"开始扫描目录: {directory}")
-        self.logger.info(f"文件扩展名过滤: {'所有文件' if match_all else ', '.join(extensions)}")
-        self.logger.info(exclude_keywords)
-        
-        # 遍历目录并处理文件
-        for root, dirs, files in os.walk(directory):
-            dirs.sort()
-            files.sort()
-            
-            # 更新当前处理的子目录
-            self.current_directory = root
-            if len(files) > 0:
-                self.logger.debug(f"正在处理子目录: {root}，包含 {len(files)} 个文件")
-            
-            for file in files:
-                file_path = os.path.join(root, file)
-                total_scanned += 1
-                self.logger.debug(f"扫描文件: {file_path}")
+            # 遍历目录并处理文件
+            for root, dirs, files in os.walk(directory):
+                dirs.sort()
+                files.sort()
                 
-                try:
-                    file_size = os.path.getsize(file_path)
-                except OSError:
-                    self.logger.error(f"获取文件大小失败: {file_path}")
-                    excluded_files += 1
-                    skipped_files.append((file_path, "无法获取文件大小"))
-                    continue
+                # 更新当前处理的子目录
+                self.current_directory = root
+                if len(files) > 0:
+                    self.logger.debug(f"正在处理子目录: {root}，包含 {len(files)} 个文件")
                 
-                # 检查是否已经处理过这个文件
-                if file_path in processed_paths:
-                    self.logger.debug(f"文件已处理过，跳过: {file_path}")  # 改为 debug 级别
-                    excluded_files += 1
-                    skipped_files.append((file_path, "文件已处理过"))
-                    continue
-                processed_paths.add(file_path)
-                
-                # 检查文件扩展名（如果不是匹配所有文件的情况）
-                if not match_all and not any(file.lower().endswith(ext.lower()) for ext in extensions):
-                    self.logger.debug(f"跳过文件（扩展名不匹配）: {file_path}")  # 改为 debug 级别
-                    excluded_files += 1
-                    skipped_files.append((file_path, "扩展名不匹配"))
-                    continue
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    total_scanned += 1
+                    self.logger.debug(f"扫描文件: {file_path}")
                     
-                # 检查是否包含排除关键字（增强日志）
-                matched_keyword = None
-                for keyword in exclude_keywords:
-                    if keyword.lower() in file_path.lower():
-                        matched_keyword = keyword
-                        self.logger.debug(
-                            f"文件[{file_path}]包含排除关键字[{keyword}]，将被排除。"
-                        )
-                        break
-                    else:
-                        self.logger.debug(
-                            f"文件[{file_path}]未包含排除关键字[{keyword}]。"
-                        )
-                if matched_keyword:
-                    skipped_files.append((file_path, f"关键字排除({matched_keyword})"))
-                    excluded_files += 1
-                    continue
-                
-                # 检查文件时间
-                try:
-                    if time_type == 'modified':
-                        file_time = int(os.path.getmtime(file_path))
-                        time_desc = "修改时间"
-                    elif time_type == 'created':
-                        file_time = int(os.path.getctime(file_path))
-                        time_desc = "创建时间"
-                    else:  # accessed
-                        file_time = int(os.path.getatime(file_path))
-                        time_desc = "访问时间"
+                    try:
+                        file_size = os.path.getsize(file_path)
+                    except OSError:
+                        self.logger.error(f"获取文件大小失败: {file_path}")
+                        excluded_files += 1
+                        skipped_files.append((file_path, "无法获取文件大小"))
+                        continue
                     
-                    current_time = int(time.time())
-                    time_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(file_time))
-                    seconds_since = current_time - file_time
-                    hours_since = seconds_since / 3600
+                    # 检查是否已经处理过这个文件
+                    if file_path in processed_paths:
+                        self.logger.debug(f"文件已处理过，跳过: {file_path}")  # 改为 debug 级别
+                        excluded_files += 1
+                        skipped_files.append((file_path, "文件已处理过"))
+                        continue
+                    processed_paths.add(file_path)
                     
-                    if seconds_since < exclude_hours * 3600:
-                        self.logger.debug(f"跳过文件（时间排除）: {file_path}, {time_desc}: {time_str}")  # 改为 debug 级别
-                        skipped_files.append((file_path, f"时间排除 ({time_desc}: {time_str})"))
+                    # 检查文件扩展名（如果不是匹配所有文件的情况）
+                    if not match_all and not any(file.lower().endswith(ext.lower()) for ext in extensions):
+                        self.logger.debug(f"跳过文件（扩展名不匹配）: {file_path}")  # 改为 debug 级别
+                        excluded_files += 1
+                        skipped_files.append((file_path, "扩展名不匹配"))
+                        continue
+                        
+                    # 检查是否包含排除关键字（增强日志）
+                    matched_keyword = None
+                    for keyword in exclude_keywords:
+                        if keyword.lower() in file_path.lower():
+                            matched_keyword = keyword
+                            self.logger.debug(
+                                f"文件[{file_path}]包含排除关键字[{keyword}]，将被排除。"
+                            )
+                            break
+                        else:
+                            self.logger.debug(
+                                f"文件[{file_path}]未包含排除关键字[{keyword}]。"
+                            )
+                    if matched_keyword:
+                        skipped_files.append((file_path, f"关键字排除({matched_keyword})"))
                         excluded_files += 1
                         continue
-                except OSError as e:
-                    self.logger.error(f"获取文件时间失败: {file_path}, 错误: {str(e)}")
-                    excluded_files += 1
-                    skipped_files.append((file_path, f"无法获取文件时间: {str(e)}"))
-                    continue
-                
-                # 检查是否是链接文件
-                if self.is_link_file(file_path):
-                    self.logger.debug(f"跳过链接文件: {file_path}")  # 改为 debug 级别
-                    excluded_files += 1
-                    skipped_files.append((file_path, "链接文件"))
-                    continue
-                
-                # 计算MD5
-                md5 = self.calculate_file_md5(file_path)
-                if md5:
-                    results[file_path] = md5
-                    self.total_md5.update(md5.encode())
-                    processed_files += 1
-                    total_size += file_size
                     
-                    # 每处理100个文件输出一次日志
-                    if processed_files % 1000 == 0:
-                        self.logger.info(f"已成功处理 {processed_files} 个文件")
+                    # 检查文件时间
+                    try:
+                        if time_type == 'modified':
+                            file_time = int(os.path.getmtime(file_path))
+                            time_desc = "修改时间"
+                        elif time_type == 'created':
+                            file_time = int(os.path.getctime(file_path))
+                            time_desc = "创建时间"
+                        else:  # accessed
+                            file_time = int(os.path.getatime(file_path))
+                            time_desc = "访问时间"
+                        
+                        current_time = int(time.time())
+                        time_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(file_time))
+                        seconds_since = current_time - file_time
+                        hours_since = seconds_since / 3600
+                        
+                        if seconds_since < exclude_hours * 3600:
+                            self.logger.debug(f"跳过文件（时间排除）: {file_path}, {time_desc}: {time_str}")  # 改为 debug 级别
+                            skipped_files.append((file_path, f"时间排除 ({time_desc}: {time_str})"))
+                            excluded_files += 1
+                            continue
+                    except OSError as e:
+                        self.logger.error(f"获取文件时间失败: {file_path}, 错误: {str(e)}")
+                        excluded_files += 1
+                        skipped_files.append((file_path, f"无法获取文件时间: {str(e)}"))
+                        continue
                     
-                    # 如果结果达到批处理大小，写入文件
-                    if len(results) >= self.batch_size:
-                        self.write_batch_results(results)
-                        results.clear()
-                else:
-                    self.logger.error(f"MD5计算失败: {file_path}")
-                    excluded_files += 1
-                    skipped_files.append((file_path, "MD5计算失败"))
-                
-                # 计算已用时间
-                elapsed_time = time.time() - start_time
-                elapsed_minutes = int(elapsed_time // 60)
-                elapsed_seconds = int(elapsed_time % 60)
-                
-                # 更新进度信息
-                total_size_mb = total_size / (1024 * 1024)
-                progress_msg = (
-                    f"已扫描{total_scanned}个文件，"
-                    f"符合条件{processed_files}个文件(总大小: {total_size_mb:.2f}MB)，"
-                    f"排除{excluded_files}个文件，"
-                    f"已用时间: {elapsed_minutes}分{elapsed_seconds}秒"
-                )
-                self.update_progress(total_scanned, 0, progress_msg)
+                    # 检查是否是链接文件
+                    if self.is_link_file(file_path):
+                        self.logger.debug(f"跳过链接文件: {file_path}")  # 改为 debug 级别
+                        excluded_files += 1
+                        skipped_files.append((file_path, "链接文件"))
+                        continue
+                    
+                    # 计算MD5
+                    md5 = self.calculate_file_md5(file_path)
+                    if md5:
+                        results[file_path] = md5
+                        self.total_md5.update(md5.encode())
+                        processed_files += 1
+                        total_size += file_size
+                        
+                        # 每处理100个文件输出一次日志
+                        if processed_files % 1000 == 0:
+                            self.logger.info(f"已成功处理 {processed_files} 个文件")
+                        
+                        # 如果结果达到批处理大小，写入文件
+                        if len(results) >= self.batch_size:
+                            self.write_batch_results(results)
+                            results.clear()
+                    else:
+                        self.logger.error(f"MD5计算失败: {file_path}")
+                        excluded_files += 1
+                        skipped_files.append((file_path, "MD5计算失败"))
+                    
+                    # 计算已用时间
+                    elapsed_time = time.time() - start_time
+                    elapsed_minutes = int(elapsed_time // 60)
+                    elapsed_seconds = int(elapsed_time % 60)
+                    
+                    # 更新进度信息
+                    total_size_mb = total_size / (1024 * 1024)
+                    progress_msg = (
+                        f"已扫描{total_scanned}个文件，"
+                        f"符合条件{processed_files}个文件(总大小: {total_size_mb:.2f}MB)，"
+                        f"排除{excluded_files}个文件，"
+                        f"已用时间: {elapsed_minutes}分{elapsed_seconds}秒"
+                    )
+                    self.update_progress(total_scanned, 0, progress_msg)
         
         # 记录被排除的文件
         if skipped_files:

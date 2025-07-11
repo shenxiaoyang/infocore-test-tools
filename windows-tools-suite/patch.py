@@ -135,7 +135,7 @@ if __name__ == "__main__":
                     print(f"已将 {changelog_path} 拷贝到 {shared_changelog_path}")
                 
                 # 发送企业微信消息
-                webhook_url = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=30bd8711-f692-4b71-8953-66ae6f6cd058"
+                webhook_url = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=2395ad2a-d59b-4b9b-9312-4818ab292d4f"
                 shared_exe_path_str = shared_exe_path.replace('\\', '\\\\')
                 msg = {
                     "msgtype": "markdown",

@@ -65,3 +65,4 @@ wheels/
 *.egg 
 VC++/
 patch.md
+.cursor/

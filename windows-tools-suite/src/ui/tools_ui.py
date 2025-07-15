@@ -2,7 +2,10 @@ from PyQt5.QtWidgets import QDialog, QVBoxLayout, QPushButton, QMessageBox, QGro
 from PyQt5.QtCore import QThread, pyqtSignal
 import os
 import ctypes
+import platform
 from ..utils.logger import get_logger
+import ctypes
+
 
 # 配置日志
 logger = get_logger(__name__)
@@ -106,7 +109,20 @@ class ToolsDialog(QDialog):
 
     def open_clumsy(self):
         logger.info("打开clumsy")
-        exe_path = os.path.join(os.path.dirname(__file__), '..', 'resources', 'clumsy', 'clumsy.exe')
+        # 判断系统版本
+        use_2_0 = False
+        try:
+            win_ver = platform.win32_ver()
+            logger.info(f"win_ver: {win_ver}")
+            # win_ver: ('10', '10.0.19041', 'SP0', 'Multiprocessor Free')
+            if '6.1' in win_ver[1] or '6.0' in win_ver[1]:
+                use_2_0 = True
+        except Exception as e:
+            logger.warning(f"判断系统版本时出错：{e}")
+        if use_2_0:
+            exe_path = os.path.join(os.path.dirname(__file__), '..', 'resources', 'clumsy', '2.0', 'clumsy.exe')
+        else:
+            exe_path = os.path.join(os.path.dirname(__file__), '..', 'resources', 'clumsy', '3.0', 'clumsy.exe')
         exe_path = os.path.abspath(exe_path)
         try:
             ret = ctypes.windll.shell32.ShellExecuteW(

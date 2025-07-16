@@ -79,12 +79,12 @@ class MD5CalculatorUI(QWidget):
         self.calculator = MD5Calculator()
         self.logger = get_logger(__name__)
         self.default_exclude_keywords = [
-            "balloon.sys", "blnsvr.exe", "netkvm.sys", "vioser.sys", 
+            "balloon.sys", "blnsvr.exe", "netkvm.sys", "vioser.sys", "e1i63x64.sys",
             "viostor.sys", "E1G6032E.sys", "Wdfcoinstaller01005.dll",
             "Wdfcoinstaller01007.dll", "Wdfcoinstaller01009.dll",
             "WdfCoInstaller01011.dll", r"Windows\assembly", r"Windows\WinSxS",
             r"Windows\servicing\LCU", r"Windows\SoftwareDistribution\Download",
-            r"poqexec.exe", r"MRT.exe"
+            r"poqexec.exe", r"MRT.exe", r"Windows\Temp"
         ]
         self.worker = None  # 添加worker属性
         self.setMinimumWidth(800)  # 设置最小宽度

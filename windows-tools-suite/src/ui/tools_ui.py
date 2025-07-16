@@ -115,7 +115,7 @@ class ToolsDialog(QDialog):
             win_ver = platform.win32_ver()
             logger.info(f"win_ver: {win_ver}")
             # win_ver: ('10', '10.0.19041', 'SP0', 'Multiprocessor Free')
-            if '6.1' in win_ver[1] or '6.0' in win_ver[1]:
+            if '6.1' in win_ver[1] or '6.0' in win_ver[1] or '6.2' in win_ver[1]:
                 use_2_0 = True
         except Exception as e:
             logger.warning(f"判断系统版本时出错：{e}")

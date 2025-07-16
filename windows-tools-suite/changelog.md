@@ -1,3 +1,7 @@
+## v1.1.10
+1、Windows NT 6.2 系统也用clumsy 2.0
+2、系统MD5值计算默认排除e1i63x64.sys
+
 ## v1.1.9
 1、NT6.1和NT6.0的版本采用2.0版本的clumsy.exe
 

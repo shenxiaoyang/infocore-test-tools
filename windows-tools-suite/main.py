@@ -71,6 +71,35 @@ class AutoExecDialog(QDialog):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        
+        # 记录软件启动文件路径
+        if getattr(sys, 'frozen', False):
+            # 如果是打包后的exe文件
+            self.startup_file_path = sys.executable
+        else:
+            # 如果是Python脚本
+            self.startup_file_path = os.path.abspath(sys.argv[0])
+        
+        # 解析出版号 Windows工具集-v1.1.18-x64.exe
+        file_name = os.path.basename(self.startup_file_path)
+        logger.info(f"file_name: {file_name}")
+        
+        # 提取版本号，格式如：Windows工具集-v1.1.18-x64.exe
+        try:
+            if '-v' in file_name:
+                version_part = file_name.split('-v')[1]
+                if '-' in version_part:
+                    self.version = version_part.split('-')[0]  # 1.1.18
+                else:
+                    self.version = version_part.split('.exe')[0]  # 如果没有架构标识
+            else:
+                self.version = "unknown"
+        except Exception as e:
+            logger.error(f"解析版本号失败: {str(e)}")
+            self.version = "unknown"
+            
+        logger.info(f"当前版本: {self.version}")
+        
         # 设置窗口图标
         icon_path = os.path.join(os.path.dirname(__file__), 'src', 'resources', 'icons', 'app.ico')
         self.setWindowIcon(QIcon(icon_path))
@@ -81,7 +110,7 @@ class MainWindow(QMainWindow):
         self.file_verify_window = None
         self.logger = get_logger(__name__)
         
-        self.setWindowTitle("Windows工具集")
+        self.setWindowTitle(f"Windows工具集-v{self.version}")
         self.setMinimumSize(400, 400)
         self.setAcceptDrops(True)
         self.setStyleSheet("""

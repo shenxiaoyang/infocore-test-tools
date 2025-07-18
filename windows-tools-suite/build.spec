@@ -17,14 +17,15 @@ a = Analysis(
     hiddenimports=[
         'PyQt5',
         'concurrent.futures',
-        'yaml'
+        'yaml',
+        'pysmb',
+        'smb'
     ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[
-        'tkinter', 'unittest', 'test', 'pydoc', 'doctest', 'email', 'html', 'http', 'xml', 'xmlrpc', 'sqlite3', 'asyncio', 'distutils', 'setuptools'
-    ],
+    excludes=['pyarrow', 'numpy', 'pandas', 'scipy', 'PIL', 'sqlalchemy', 'psycopg2', 'lxml', 'pyzt', 'markupsafe', 'docutils', 'psutil',
+    'importlib_metadata-6.6.0.dist-info', 'wheel-0.42.0.dist-info',],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
@@ -40,7 +41,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='Windows工具集-v1.1.10',
+    name='Windows工具集-v1.1.19',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

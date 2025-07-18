@@ -30,6 +30,11 @@
 
 7. **HostAgent 配置工具**
    - **EIMVssProvider日志配置**：启用/关闭日志记录，自动重启服务
+   - **程序文件签名检查**：检查程序文件的数字签名状态
+   - **代理下载安装**：从SMB服务器自动下载最新的HostAgent代理文件
+     - 支持x86/x64架构自动识别
+     - 异步下载，不阻塞界面
+     - 自动选择最新版本文件
    - **驱动签名验证管理**：一键切换 testsigning 和 nointegritychecks 状态
      - 实时显示当前验证状态（已打开/已关闭）
      - 显示详细的 testsigning 和 nointegritychecks 状态

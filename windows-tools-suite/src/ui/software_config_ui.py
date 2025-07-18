@@ -2,14 +2,208 @@ import sys
 import os
 import winreg
 import yaml
+import platform
 from PyQt5.QtWidgets import QDialog, QVBoxLayout, QGroupBox, QPushButton, QMessageBox, QCheckBox, QHBoxLayout, QLabel
-from PyQt5.QtCore import QTimer
+from PyQt5.QtCore import QTimer, QThread, pyqtSignal
+from smb.SMBConnection import SMBConnection
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+def extract_version_from_filename(filename):
+    """从文件名中提取版本号"""
+    try:
+        if '-v' in filename:
+            version_part = filename.split('-v')[1]
+            if '-' in version_part:
+                return version_part.split('-')[0]
+            else:
+                return version_part.split('.exe')[0]
+        return None
+    except Exception:
+        return None
+
+def compare_versions(version1, version2):
+    """比较两个版本号，返回True如果version1 >= version2"""
+    if not version1 or not version2:
+        return False
+    
+    try:
+        # 将版本号分割成数字列表进行比较
+        v1_parts = [int(x) for x in version1.split('.')]
+        v2_parts = [int(x) for x in version2.split('.')]
+        
+        # 补齐长度
+        max_len = max(len(v1_parts), len(v2_parts))
+        v1_parts.extend([0] * (max_len - len(v1_parts)))
+        v2_parts.extend([0] * (max_len - len(v2_parts)))
+        
+        # 比较每个部分
+        for i in range(max_len):
+            if v1_parts[i] > v2_parts[i]:
+                return True
+            elif v1_parts[i] < v2_parts[i]:
+                return False
+        
+        return True  # 相等
+    except Exception:
+        return False
+
+class SoftwareUpdateThread(QThread):
+    """软件更新下载线程"""
+    progress_signal = pyqtSignal(str)  # 进度信号
+    finished_signal = pyqtSignal(bool, str)  # 完成信号，参数：是否成功，消息
+    
+    def __init__(self, current_version=None):
+        super().__init__()
+        self.current_version = current_version
+        self.smb_server = "192.168.1.20"
+        self.smb_share = "测试部（日志和iso）"
+        self.smb_path = "软件类/自研/Windows工具集"
+        self.username = "xiaoyang.shen"
+        self.password = "infocores"
+        
+    def run(self):
+        try:
+            self.progress_signal.emit("正在连接SMB服务器...")
+            
+            # 尝试不同的认证方式
+            auth_methods = [
+                {'use_ntlm_v2': True, 'is_direct_tcp': True, 'name': 'Direct TCP'},
+                {'use_ntlm_v2': True, 'name': 'NTLMv2'},
+                {'use_ntlm_v2': False, 'name': 'NTLMv1'}
+            ]
+            
+            conn = None
+            for auth_method in auth_methods:
+                try:
+                    self.progress_signal.emit(f"尝试使用{auth_method['name']}认证...")
+                    
+                    conn = SMBConnection(self.username, self.password, 
+                                       "client", self.smb_server, 
+                                       use_ntlm_v2=auth_method.get('use_ntlm_v2', True),
+                                       is_direct_tcp=auth_method.get('is_direct_tcp', False))
+                    
+                    if conn.connect(self.smb_server, 445, timeout=10):
+                        self.progress_signal.emit(f"使用{auth_method['name']}认证成功")
+                        break
+                    else:
+                        conn.close()
+                        conn = None
+                        
+                except Exception as auth_e:
+                    logger.warning(f"使用{auth_method['name']}认证失败: {str(auth_e)}")
+                    if conn:
+                        conn.close()
+                        conn = None
+                    continue
+            
+            if not conn:
+                self.finished_signal.emit(False, "所有认证方式都失败，请检查用户名密码和网络连接")
+                return
+                
+            self.progress_signal.emit("正在获取文件列表...")
+            
+            try:
+                # 根据系统架构选择目录
+                system_arch = platform.architecture()[0]
+                if system_arch == '32bit':
+                    arch_dir = "x86"
+                else:
+                    arch_dir = "x64"
+                
+                # 获取对应架构目录下的文件列表
+                arch_path = f"{self.smb_path}/{arch_dir}"
+                files = conn.listPath(self.smb_share, arch_path)
+            except Exception as list_e:
+                logger.error(f"获取目录列表失败: {str(list_e)}")
+                self.finished_signal.emit(False, f"无法访问共享目录，请检查权限: {str(list_e)}")
+                conn.close()
+                return
+            
+            # 过滤exe文件
+            exe_files = [f for f in files if f.filename.endswith('.exe')]
+            
+            if not exe_files:
+                self.finished_signal.emit(False, f"在{arch_dir}目录下未找到exe文件")
+                conn.close()
+                return
+                
+            # 按修改时间排序，获取最新文件
+            exe_files.sort(key=lambda x: x.last_write_time, reverse=True)
+            latest_file = exe_files[0]
+            
+            self.progress_signal.emit(f"找到最新文件: {latest_file.filename}")
+            
+            # 版本对比逻辑
+            if self.current_version and self.current_version != "unknown":
+                try:
+                    # 从文件名中提取版本号
+                    latest_version = extract_version_from_filename(latest_file.filename)
+                    
+                    if latest_version:
+                        self.progress_signal.emit(f"当前版本: {self.current_version}, 最新版本: {latest_version}")
+                        
+                        # 版本对比 - 如果当前版本 >= 最新版本，则无需更新
+                        if compare_versions(self.current_version, latest_version):
+                            conn.close()
+                            if self.current_version == latest_version:
+                                self.finished_signal.emit(True, f"当前版本 {self.current_version} 已是最新版本，无需更新！")
+                            else:
+                                self.finished_signal.emit(True, f"当前版本 {self.current_version} 比服务器版本 {latest_version} 更新，无需更新！")
+                            return
+                        
+                        self.progress_signal.emit(f"发现新版本 {latest_version}，准备下载...")
+                    else:
+                        self.progress_signal.emit("无法解析服务器版本号，继续下载...")
+                        
+                except Exception as version_e:
+                    logger.warning(f"版本对比失败: {str(version_e)}")
+                    self.progress_signal.emit("版本对比失败，继续下载...")
+            
+            # 设置下载目录为桌面
+            download_dir = os.path.join(os.path.expanduser("~"), "Desktop")
+            
+            local_path = os.path.join(download_dir, latest_file.filename)
+            
+            self.progress_signal.emit("正在下载文件...")
+            
+            try:
+                # 下载文件
+                with open(local_path, 'wb') as local_file:
+                    conn.retrieveFile(self.smb_share, 
+                                    f"{arch_path}/{latest_file.filename}", 
+                                    local_file)
+                
+                conn.close()
+                self.finished_signal.emit(True, f"下载完成！文件保存在: {local_path}")
+                
+            except Exception as download_e:
+                logger.error(f"下载文件失败: {str(download_e)}")
+                conn.close()
+                self.finished_signal.emit(False, f"下载文件失败: {str(download_e)}")
+            
+        except Exception as e:
+            logger.error(f"下载过程中出错: {str(e)}")
+            error_msg = str(e)
+            
+            # 根据错误类型提供更具体的提示
+            if "10054" in error_msg:
+                error_msg = "连接被远程主机强制关闭，可能原因：\n1. 用户名密码错误\n2. 权限不足\n3. 服务器限制连接数\n4. 防火墙阻止"
+            elif "10060" in error_msg:
+                error_msg = "连接超时，请检查网络连接和服务器地址"
+            elif "10061" in error_msg:
+                error_msg = "无法连接到服务器，请检查服务器是否运行和端口是否开放"
+            
+            self.finished_signal.emit(False, f"下载失败: {error_msg}")
 
 class SoftwareConfigDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.parent_window = parent  # 保存主窗口引用
         self.setWindowTitle("工具集配置")
         self.setMinimumWidth(400)
+        self.update_thread = None
         self.init_ui()
         self.check_startup_status()
         self.check_auto_exec_status()
@@ -59,6 +253,21 @@ class SoftwareConfigDialog(QDialog):
         
         auto_exec_group.setLayout(auto_exec_layout)
         layout.addWidget(auto_exec_group)
+        
+        # 软件更新分组
+        update_group = QGroupBox("本软件更新")
+        update_layout = QVBoxLayout()
+        
+        # 添加说明文案
+        update_note = QLabel("从服务器下载最新版本的Windows工具集软件包。")
+        update_note.setWordWrap(True)
+        update_layout.addWidget(update_note)
+        
+        self.update_btn = QPushButton("下载最新版")
+        self.update_btn.clicked.connect(self.download_latest_version)
+        update_layout.addWidget(self.update_btn)
+        update_group.setLayout(update_layout)
+        layout.addWidget(update_group)
         
         layout.addStretch()
         self.setLayout(layout)
@@ -185,3 +394,46 @@ class SoftwareConfigDialog(QDialog):
         except Exception as e:
             QMessageBox.critical(self, "取消失败", f"取消开机自启失败：{str(e)}")
         self.check_startup_status()
+
+    def download_latest_version(self):
+        """下载最新版本功能"""
+        logger.info("开始下载最新版本")
+        
+        # 获取当前版本信息
+        current_version = None
+        if self.parent_window and hasattr(self.parent_window, 'version'):
+            current_version = self.parent_window.version
+        
+        # 禁用按钮并显示下载中状态
+        self.update_btn.setEnabled(False)
+        self.update_btn.setText("检查更新中...")
+        
+        # 创建并启动下载线程
+        self.update_thread = SoftwareUpdateThread(current_version)
+        self.update_thread.progress_signal.connect(self.on_update_progress)
+        self.update_thread.finished_signal.connect(self.on_update_finished)
+        self.update_thread.start()
+    
+    def on_update_progress(self, message):
+        """更新进度回调"""
+        logger.info(f"更新进度: {message}")
+        
+        # 当开始下载时更新按钮文本
+        if "正在下载文件" in message:
+            self.update_btn.setText("下载中...")
+        elif "发现新版本" in message:
+            self.update_btn.setText("下载中...")
+        # 可以在这里添加进度显示，比如更新按钮文本或显示进度条
+    
+    def on_update_finished(self, success, message):
+        """更新完成回调"""
+        # 恢复按钮状态
+        self.update_btn.setEnabled(True)
+        self.update_btn.setText("下载最新版")
+        
+        if success:
+            QMessageBox.information(self, "下载成功", message)
+        else:
+            QMessageBox.warning(self, "下载失败", message)
+        
+        logger.info(f"更新完成: {message}")

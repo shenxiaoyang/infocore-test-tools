@@ -8,6 +8,8 @@ from src.ui.md5_calculator_ui import MD5CalculatorUI
 from src.ui.file_compare_ui import FileCompareUI
 from src.ui.file_generator_ui import FileGeneratorUI
 from src.ui.file_verify_ui import FileVerifyUI
+from src.ui.windows_proxy_manager_ui import WindowsProxyConfigDialog
+from src.ui.linux_proxy_manager_ui import LinuxProxyManagerDialog
 import yaml
 import threading
 import winreg
@@ -297,15 +299,25 @@ class MainWindow(QMainWindow):
         verify_btn.leaveEvent = lambda e: self.update_subtitle("便捷实用的Windows工具箱")
         tools_grid.addWidget(verify_btn, 3, 1)
 
-        # HostAgent配置按钮
-        hostagent_btn = QPushButton("HostAgent配置")
-        hostagent_btn.setMinimumHeight(30)
-        hostagent_btn.setStyleSheet(self.btn_style)
-        hostagent_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        hostagent_btn.clicked.connect(self.open_hostagent_config)
-        hostagent_btn.enterEvent = lambda e: self.update_subtitle("HostAgent相关模块配置和操作")
-        hostagent_btn.leaveEvent = lambda e: self.update_subtitle("便捷实用的Windows工具箱")
-        tools_grid.addWidget(hostagent_btn, 4, 0, 1, 2)
+        # Windows代理配置按钮
+        windows_proxy_btn = QPushButton("Windows代理配置")
+        windows_proxy_btn.setMinimumHeight(30)
+        windows_proxy_btn.setStyleSheet(self.btn_style)
+        windows_proxy_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        windows_proxy_btn.clicked.connect(self.open_windows_proxy_config)
+        windows_proxy_btn.enterEvent = lambda e: self.update_subtitle("Windows代理相关模块配置和操作")
+        windows_proxy_btn.leaveEvent = lambda e: self.update_subtitle("便捷实用的Windows工具箱")
+        tools_grid.addWidget(windows_proxy_btn, 4, 0)
+
+        # 新增：Linux代理管理按钮
+        linux_proxy_btn = QPushButton("Linux代理管理")
+        linux_proxy_btn.setMinimumHeight(30)
+        linux_proxy_btn.setStyleSheet(self.btn_style)
+        linux_proxy_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        linux_proxy_btn.clicked.connect(self.open_linux_proxy_manager)
+        linux_proxy_btn.enterEvent = lambda e: self.update_subtitle("Linux代理统一管理与监控")
+        linux_proxy_btn.leaveEvent = lambda e: self.update_subtitle("便捷实用的Windows工具箱")
+        tools_grid.addWidget(linux_proxy_btn, 4, 1)
 
         # 第六行：第三方工具按钮
         thirdparty_btn = QPushButton("第三方工具")
@@ -508,10 +520,9 @@ class MainWindow(QMainWindow):
         dialog = ToolsDialog(self)
         dialog.exec_()
 
-    def open_hostagent_config(self):
-        logger.info("打开HostAgent配置")
-        from src.ui.hostagent_config_ui import HostAgentConfigDialog
-        dialog = HostAgentConfigDialog(self)
+    def open_windows_proxy_config(self):
+        logger.info("打开Windows代理配置")
+        dialog = WindowsProxyConfigDialog(self)
         dialog.exec_()
 
     def open_md5_calc_dialog(self):
@@ -530,6 +541,10 @@ class MainWindow(QMainWindow):
     def open_software_config(self):
         from src.ui.software_config_ui import SoftwareConfigDialog
         dialog = SoftwareConfigDialog(self)
+        dialog.exec_()
+
+    def open_linux_proxy_manager(self):
+        dialog = LinuxProxyManagerDialog(self)
         dialog.exec_()
 
     def update_subtitle(self, text):

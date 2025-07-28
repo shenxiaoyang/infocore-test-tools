@@ -36,7 +36,7 @@ def get_logger(name="infocore"):
         console_handler.setLevel(logging.INFO)
 
         # 格式
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s')
         file_handler.setFormatter(formatter)
         console_handler.setFormatter(formatter)
 

@@ -154,10 +154,10 @@ class ProxyDownloadThread(QThread):
             
             self.finished_signal.emit(False, f"下载失败: {error_msg}")
 
-class HostAgentConfigDialog(QDialog):
+class WindowsProxyConfigDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("HostAgent配置")
+        self.setWindowTitle("Windows代理配置")
         self.setMinimumWidth(400)
         self.download_thread = None
         self.current_smb_path = "\\\\192.168.1.20\\ALLPackages\\hostagent\\x86_64\\Windows\\6.2"
@@ -186,14 +186,14 @@ class HostAgentConfigDialog(QDialog):
         layout.addWidget(sig_group)
         
         # 新增：代理下载安装QGroupBox
-        proxy_group = QGroupBox("代理下载安装")
-        proxy_layout = QVBoxLayout()
+        windows_proxy_group = QGroupBox("Windows代理下载")
+        windows_proxy_layout = QVBoxLayout()
         
         # 添加说明文字
         self.path_info_label = QLabel("默认获取新包路径\n\\\\192.168.1.20\\ALLPackages\\hostagent\\x86_64\\Windows\\6.2")
         self.path_info_label.setWordWrap(True)
         self.path_info_label.setStyleSheet("color: #666; font-size: 12px; margin-bottom: 5px;")
-        proxy_layout.addWidget(self.path_info_label)
+        windows_proxy_layout.addWidget(self.path_info_label)
         
         # 按钮布局
         button_layout = QHBoxLayout()
@@ -207,13 +207,13 @@ class HostAgentConfigDialog(QDialog):
         button_layout.addWidget(path_btn)
         
         # 下载按钮
-        self.proxy_download_btn = QPushButton("最新代理下载")
-        self.proxy_download_btn.clicked.connect(self.download_latest_proxy)
-        button_layout.addWidget(self.proxy_download_btn)
+        self.windows_proxy_download_btn = QPushButton("最新代理下载")
+        self.windows_proxy_download_btn.clicked.connect(self.download_latest_windows_proxy)
+        button_layout.addWidget(self.windows_proxy_download_btn)
         
-        proxy_layout.addLayout(button_layout)
-        proxy_group.setLayout(proxy_layout)
-        layout.addWidget(proxy_group)
+        windows_proxy_layout.addLayout(button_layout)
+        windows_proxy_group.setLayout(windows_proxy_layout)
+        layout.addWidget(windows_proxy_group)
         
         # 预留后续模块分块
         layout.addStretch()
@@ -299,13 +299,13 @@ class HostAgentConfigDialog(QDialog):
             else:
                 QMessageBox.warning(self, "格式错误", "路径格式应为: \\\\server\\share\\path")
     
-    def download_latest_proxy(self):
+    def download_latest_windows_proxy(self):
         """最新代理下载功能"""
-        logger.info("开始下载最新代理")
+        logger.info("开始下载最新Windows代理")
         
         # 禁用按钮并显示下载中状态
-        self.proxy_download_btn.setEnabled(False)
-        self.proxy_download_btn.setText("下载中...")
+        self.windows_proxy_download_btn.setEnabled(False)
+        self.windows_proxy_download_btn.setText("下载中...")
         
         # 创建并启动下载线程，传入自定义路径
         self.download_thread = ProxyDownloadThread(self.current_smb_path)
@@ -321,8 +321,8 @@ class HostAgentConfigDialog(QDialog):
     def on_download_finished(self, success, message):
         """下载完成回调"""
         # 恢复按钮状态
-        self.proxy_download_btn.setEnabled(True)
-        self.proxy_download_btn.setText("最新代理下载")
+        self.windows_proxy_download_btn.setEnabled(True)
+        self.windows_proxy_download_btn.setText("最新代理下载")
         
         if success:
             QMessageBox.information(self, "下载成功", message)

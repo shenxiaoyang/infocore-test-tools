@@ -10,6 +10,159 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+
+class StartupCheckThread(QThread):
+    """自启检测线程"""
+    startup_update_needed = pyqtSignal(str, str)  # 当前自启路径, 正确的自启路径
+    new_version_found = pyqtSignal(str, str, str)  # 当前版本, 最新版本, 最新文件名
+    
+    def __init__(self, current_exe_path, current_version=None):
+        super().__init__()
+        self.current_exe_path = current_exe_path
+        self.current_version = current_version
+        self.smb_server = "192.168.1.20"
+        self.smb_share = "测试部（日志和iso）"
+        self.smb_path = "软件类/自研/Windows工具集"
+        self.username = "xiaoyang.shen"
+        self.password = "infocores"
+        
+    def run(self):
+        """运行自启检测和版本检测"""
+        import time
+        import platform
+        # 延迟3秒后开始检测，避免影响主程序启动
+        time.sleep(3)
+        
+        try:
+            logger.info("开始检测自启状态和版本更新")
+            
+            # 1. 检查注册表中的自启项
+            self._check_startup_registry()
+            
+            # 2. 检查版本更新
+            self._check_version_update()
+                
+        except Exception as e:
+            logger.error(f"自启和版本检测失败: {str(e)}")
+    
+    def _check_startup_registry(self):
+        """检查自启注册表项"""
+        try:
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                r"Software\\Microsoft\\Windows\\CurrentVersion\\Run"
+            )
+            
+            try:
+                current_startup_value, _ = winreg.QueryValueEx(key, "EIMFilegen")
+                winreg.CloseKey(key)
+                
+                logger.info(f"当前自启项: {current_startup_value}")
+                
+                # 构建正确的自启命令
+                correct_startup_cmd = f'"{self.current_exe_path}" autorun'
+                
+                # 比较当前自启项和正确的自启项
+                if current_startup_value != correct_startup_cmd:
+                    logger.info(f"自启项需要更新: {current_startup_value} -> {correct_startup_cmd}")
+                    self.startup_update_needed.emit(current_startup_value, correct_startup_cmd)
+                else:
+                    logger.info("自启项已是最新，无需更新")
+                    
+            except FileNotFoundError:
+                logger.info("未找到自启项，无需更新")
+                
+        except Exception as reg_e:
+            logger.error(f"检查注册表失败: {str(reg_e)}")
+    
+    def _check_version_update(self):
+        """检查版本更新"""
+        if not self.current_version or self.current_version == "unknown":
+            logger.info("当前版本未知，跳过版本检测")
+            return
+            
+        try:
+            logger.info("开始检测版本更新")
+            
+            # 尝试连接SMB服务器
+            conn = None
+            auth_methods = [
+                {'use_ntlm_v2': True, 'is_direct_tcp': True},
+                {'use_ntlm_v2': True},
+                {'use_ntlm_v2': False}
+            ]
+            
+            for auth_method in auth_methods:
+                try:
+                    conn = SMBConnection(self.username, self.password, 
+                                       "client", self.smb_server, 
+                                       use_ntlm_v2=auth_method.get('use_ntlm_v2', True),
+                                       is_direct_tcp=auth_method.get('is_direct_tcp', False))
+                    
+                    if conn.connect(self.smb_server, 445, timeout=10):
+                        break
+                    else:
+                        conn.close()
+                        conn = None
+                        
+                except Exception:
+                    if conn:
+                        conn.close()
+                        conn = None
+                    continue
+            
+            if not conn:
+                logger.warning("版本检测：SMB连接失败")
+                return
+            
+            # 根据系统架构选择目录
+            import platform
+            system_arch = platform.architecture()[0]
+            if system_arch == '32bit':
+                arch_dir = "x86"
+            else:
+                arch_dir = "x64"
+            
+            # 获取对应架构目录下的文件列表
+            arch_path = f"{self.smb_path}/{arch_dir}"
+            files = conn.listPath(self.smb_share, arch_path)
+            
+            # 过滤exe文件
+            exe_files = [f for f in files if f.filename.endswith('.exe') and not f.isDirectory]
+            
+            if not exe_files:
+                logger.warning("版本检测：未找到exe文件")
+                conn.close()
+                return
+            
+            # 按时间排序，找到最新的文件
+            exe_files.sort(key=lambda x: x.last_write_time, reverse=True)
+            latest_file = exe_files[0]
+            
+            conn.close()
+            
+            # 版本对比逻辑
+            try:
+                # 从文件名中提取版本号
+                latest_version = extract_version_from_filename(latest_file.filename)
+                
+                if latest_version:
+                    logger.info(f"版本检测：当前版本 {self.current_version}, 最新版本 {latest_version}")
+                    
+                    # 版本对比 - 如果当前版本 < 最新版本，则有新版本
+                    if not compare_versions(self.current_version, latest_version):
+                        logger.info(f"发现新版本 {latest_version}")
+                        self.new_version_found.emit(self.current_version, latest_version, latest_file.filename)
+                    else:
+                        logger.info("当前版本已是最新版本")
+                        
+            except Exception as version_e:
+                logger.warning(f"版本检测：版本对比失败: {str(version_e)}")
+                        
+        except Exception as e:
+            logger.error(f"版本检测失败: {str(e)}")
+
+
 def extract_version_from_filename(filename):
     """从文件名中提取版本号"""
     try:

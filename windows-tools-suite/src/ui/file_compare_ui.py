@@ -130,7 +130,8 @@ class DiffHighlighter(QSyntaxHighlighter):
             "-": self._create_format("#ffe6e6"),  # 删除的行（浅红色）
         }
         self.diff_types = {}  # {行号: 差异类型}
-        self.batch_size = 5000
+        self.batch_size = 1000  # 减小批次提高响应性
+        self.use_virtual_highlighting = True  # 启用虚拟高亮
         self.current_block = 0
         self.is_highlighting = False
         self._document = None

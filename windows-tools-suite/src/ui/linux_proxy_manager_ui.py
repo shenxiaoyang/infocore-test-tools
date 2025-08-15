@@ -913,6 +913,7 @@ class LinuxProxyManagerDialog(QDialog):
             'ubuntu': 'ubuntu',
             'oraclelinux': 'oraclelinux',
             'uos': 'uos',
+            'debian': 'debian',
         }
         
         mapped_os_type = os_type_mapping.get(os_type.lower(), os_type.lower())

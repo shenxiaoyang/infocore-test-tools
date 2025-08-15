@@ -1,7 +1,10 @@
 import sys
 import os
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
-                           QPushButton, QLabel, QFrame, QMessageBox, QHBoxLayout, QSizePolicy, QGridLayout, QDialog, QVBoxLayout as QVBoxLayout2, QHBoxLayout as QHBoxLayout2)
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QPushButton, QLabel, QFrame, QMessageBox, QSizePolicy, 
+    QGridLayout, QDialog
+)
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QIcon
 from src.ui.md5_calculator_ui import MD5CalculatorUI
@@ -10,6 +13,7 @@ from src.ui.file_generator_ui import FileGeneratorUI
 from src.ui.file_verify_ui import FileVerifyUI
 from src.ui.windows_proxy_manager_ui import WindowsProxyConfigDialog
 from src.ui.linux_proxy_manager_ui import LinuxProxyManagerDialog
+from src.ui.software_config_ui import StartupCheckThread
 import yaml
 import threading
 import winreg
@@ -30,7 +34,7 @@ class AutoExecDialog(QDialog):
         self.start_countdown()
         
     def init_ui(self):
-        layout = QVBoxLayout2()
+        layout = QVBoxLayout()  # 使用正常版本
         
         # 显示要执行的模块
         modules_text = "\n".join([f"• {module}" for module in self.modules])
@@ -39,7 +43,7 @@ class AutoExecDialog(QDialog):
         layout.addWidget(label)
         
         # 按钮布局
-        btn_layout = QHBoxLayout2()
+        btn_layout = QHBoxLayout()  # 使用正常版本
         ok_btn = QPushButton("立即执行")
         cancel_btn = QPushButton("取消")
         btn_layout.addWidget(ok_btn)
@@ -374,6 +378,9 @@ class MainWindow(QMainWindow):
         
         # 检查自动执行配置
         self.check_auto_exec_config()
+        
+        # 启动自启检测线程
+        self.start_startup_check()
     
     def check_auto_exec_config(self):
         """检查自动执行配置"""
@@ -546,6 +553,74 @@ class MainWindow(QMainWindow):
     def open_linux_proxy_manager(self):
         dialog = LinuxProxyManagerDialog(self)
         dialog.exec_()
+
+    def start_startup_check(self):
+        """启动自启检测线程"""
+        try:
+            logger.info("启动自启检测线程")
+            self.startup_check_thread = StartupCheckThread(self.startup_file_path, self.version)
+            self.startup_check_thread.startup_update_needed.connect(self.on_startup_update_needed)
+            self.startup_check_thread.new_version_found.connect(self.on_new_version_found)
+            self.startup_check_thread.start()
+        except Exception as e:
+            logger.error(f"启动自启检测线程失败: {str(e)}")
+    
+    def on_startup_update_needed(self, current_startup, correct_startup):
+        """处理自启更新需求"""
+        try:
+            logger.info(f"需要更新自启项: {current_startup} -> {correct_startup}")
+            
+            # 自动更新注册表中的自启项
+            key = winreg.CreateKey(
+                winreg.HKEY_CURRENT_USER,
+                r"Software\\Microsoft\\Windows\\CurrentVersion\\Run"
+            )
+            winreg.SetValueEx(key, "EIMFilegen", 0, winreg.REG_SZ, correct_startup)
+            winreg.CloseKey(key)
+            
+            logger.info("自启项已自动更新")
+            
+        except Exception as e:
+            logger.error(f"更新自启项失败: {str(e)}")
+    
+    def on_new_version_found(self, current_version, latest_version, latest_filename):
+        """处理发现新版本"""
+        try:
+            logger.info(f"发现新版本: {current_version} -> {latest_version}")
+            
+            # 弹窗提示用户发现新版本
+            reply = QMessageBox.question(
+                self, 
+                "发现新版本", 
+                f"发现新版本 {latest_version}！\n"
+                f"当前版本: {current_version}\n"
+                f"最新版本: {latest_version}\n"
+                f"文件名: {latest_filename}\n\n"
+                f"是否立即下载新版本？",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes
+            )
+            
+            if reply == QMessageBox.Yes:
+                # 用户选择下载，打开软件配置对话框并自动开始下载
+                self.download_new_version()
+                
+        except Exception as e:
+            logger.error(f"处理新版本发现失败: {str(e)}")
+    
+    def download_new_version(self):
+        """下载新版本"""
+        try:
+            logger.info("用户选择下载新版本")
+            # 打开软件配置对话框
+            from src.ui.software_config_ui import SoftwareConfigDialog
+            dialog = SoftwareConfigDialog(self)
+            # 自动触发下载
+            dialog.download_latest_version()
+            dialog.exec_()
+        except Exception as e:
+            logger.error(f"下载新版本失败: {str(e)}")
+            QMessageBox.warning(self, "下载失败", f"下载新版本失败: {str(e)}")
 
     def update_subtitle(self, text):
         """更新副标题文本"""

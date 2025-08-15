@@ -1,6 +1,7 @@
 import os
 import hashlib
 import sys
+import multiprocessing
 from ..utils.logger import get_logger
 import time
 
@@ -17,7 +18,8 @@ class MD5Calculator:
             '.chm'
         ]
         self.progress_callback = None
-        self.max_workers = 2  # 将线程池大小改为1
+        # 根据CPU核心数动态设置线程数
+        self.max_workers = min(multiprocessing.cpu_count(), 4)
         self.batch_size = 10000  # 每批写入的文件数
         self.output_file = None  # 当前输出文件
         self.total_md5 = hashlib.md5()  # 用于计算总MD5值

@@ -589,7 +589,7 @@ class InstallUpdateAgentThread(QThread):
             logger.info("开始安装代理")
             
             success, stdout_content, stderr_content, exit_code = execute_ssh_command(
-                ssh, f'bash {remote_path}', timeout=120, interactive_input='y'
+                ssh, f'bash {remote_path} --silent', timeout=120
             )
             
             if success:

@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
                            QLabel, QFileDialog, QLineEdit, QRadioButton, 
-                           QButtonGroup, QComboBox, QMessageBox, QFrame, QGroupBox, QStyle, QProgressBar)
+                           QButtonGroup, QComboBox, QMessageBox, QFrame, QGroupBox, QStyle, QProgressBar, QCheckBox)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 import os
 import sys
@@ -19,9 +19,11 @@ class FileGeneratorWorker(QThread):
     finished = pyqtSignal()     # 完成信号
     stopped = pyqtSignal()      # 停止信号
     progress_value = pyqtSignal(int)  # 进度值信号
+    wait_started = pyqtSignal()  # 等待开始信号
+    wait_finished = pyqtSignal()  # 等待结束信号
     
     def __init__(self, target_dir, file_size_min, file_size_max, 
-                 size_unit, is_loop, max_files, interval):
+                 size_unit, is_loop, max_files, interval, repeat_interval=0, delete_after=False, max_repeat_count=None):
         super().__init__()
         self.target_dir = target_dir
         self.file_size_min = file_size_min
@@ -30,6 +32,9 @@ class FileGeneratorWorker(QThread):
         self.is_loop = is_loop
         self.max_files = max_files
         self.interval = interval
+        self.repeat_interval = repeat_interval
+        self.delete_after = delete_after
+        self.max_repeat_count = max_repeat_count  # None表示无限
         self.is_running = True
         self.is_paused = False
         self.was_stopped = False
@@ -45,7 +50,7 @@ class FileGeneratorWorker(QThread):
         self.files_dir = os.path.join(self.target_dir, f'files_{random_suffix}')
         # 设置分块大小为10MB
         self.chunk_size = 10 * 1024 * 1024
-        logger.info(f"工作线程初始化完成，参数：目录={self.files_dir}, 大小范围={file_size_min}-{file_size_max}{size_unit}, 循环={is_loop}, 文件数={max_files}, 间隔={interval}")
+        logger.info(f"工作线程初始化完成，参数：目录={self.files_dir}, 大小范围={file_size_min}-{file_size_max}{size_unit}, 重复={is_loop}, 文件数={max_files}, 间隔={interval}")
         
     def run(self):
         generator = FileGenerator(
@@ -55,7 +60,10 @@ class FileGeneratorWorker(QThread):
             self.size_unit,
             self.max_files,
             self.is_loop,
-            self.interval
+            self.interval,
+            self.repeat_interval,
+            self.delete_after,
+            self.max_repeat_count
         )
         generator.generate_files(
             progress_callback=self._progress_callback,
@@ -74,23 +82,31 @@ class FileGeneratorWorker(QThread):
     def _progress_callback(self, stage, files_dir, files_created, max_files, total_size, round_number):
         round_info = f"第{round_number}轮："
         if stage == 'start':
+            # 如果是重复模式且不是第一轮，说明等待结束，新一轮开始
+            if self.is_loop and round_number > 1:
+                self.wait_finished.emit()  # 新一轮开始，等待结束
             msg = f"{round_info}开始{'新一轮' if self.is_loop else ''}文件生成\n文件生成目录：{files_dir}"
+            self.progress.emit(msg)
         elif stage == 'progress':
             percent = int((files_created / max_files) * 100) if max_files else 0
             self.progress_value.emit(percent)
             msg = (f"{round_info}文件生成目录：{files_dir}\n"
-                   f"当前{'循环模式，' if self.is_loop else ''}已生成 {files_created} 个文件，共需要 {max_files} 个\n"
+                   f"当前{'重复模式，' if self.is_loop else ''}已生成 {files_created} 个文件，共需要 {max_files} 个\n"
                    f"已生成文件总大小：{format_size(total_size)}\n")
+            self.progress.emit(msg)
         elif stage == 'finished':
             msg = (f"{round_info}{'本轮' if self.is_loop else ''}文件生成完成\n"
                    f"文件生成目录：{files_dir}\n"
                    f"共生成了 {files_created} 个文件\n"
                    f"文件总大小：{format_size(total_size)}")
+            self.progress.emit(msg)
         elif stage == 'loop_wait':
-            msg = f"{round_info}等待3秒后开始下一轮文件生成..."
-        else:
-            msg = ""
-        self.progress.emit(msg)
+            self.wait_started.emit()  # 发送等待开始信号
+            if self.repeat_interval > 0:
+                msg = f"{round_info}等待{self.repeat_interval}秒后开始下一轮文件生成..."
+            else:
+                msg = f"{round_info}准备开始下一轮文件生成..."
+            self.progress.emit(msg)
 
     def _finished_callback(self, files_dir, files_created, total_size):
         self.progress.emit(f"文件生成完成，目录：{files_dir}，共{files_created}个文件，总大小{total_size}字节")
@@ -129,7 +145,7 @@ class FileGeneratorUI(QWidget):
     def initUI(self):
         self.setWindowTitle('本地文件产生器')
         self.setMinimumWidth(600)
-        self.setMinimumHeight(660)  # 增加最小高度
+        self.setMinimumHeight(700)  # 增加最小高度
         self.setStyleSheet("""
             QWidget {
                 font-family: Microsoft YaHei, Arial;
@@ -238,21 +254,69 @@ class FileGeneratorUI(QWidget):
         size_group.setLayout(size_layout)
         layout.addWidget(size_group)
         
-        # 产生模式设置组
+        # 产生模式设置组 - 三个QGroupBox并排显示
+        mode_row_layout = QHBoxLayout()
+        mode_row_layout.setSpacing(10)
+        
+        # 产生模式QGroupBox
         mode_group = QGroupBox("产生模式")
         mode_layout = QHBoxLayout()
         mode_layout.setSpacing(5)
         
         self.single_mode = QRadioButton("单次")
-        self.loop_mode = QRadioButton("循环")
+        self.loop_mode = QRadioButton("重复")
         self.single_mode.setChecked(True)
+        
+        # 连接模式切换信号，用于控制重复相关设置的显示/隐藏和启用/禁用
+        self.single_mode.toggled.connect(self.on_mode_changed)
+        self.loop_mode.toggled.connect(self.on_mode_changed)
         
         mode_layout.addWidget(self.single_mode)
         mode_layout.addWidget(self.loop_mode)
         mode_layout.addStretch()
         
         mode_group.setLayout(mode_layout)
-        layout.addWidget(mode_group)
+        mode_row_layout.addWidget(mode_group)
+        
+        # 重复间隔设置QGroupBox（仅在重复模式下显示）
+        self.repeat_interval_group = QGroupBox("重复间隔")
+        repeat_interval_layout = QHBoxLayout()
+        repeat_interval_layout.setSpacing(5)
+        
+        self.repeat_interval_edit = QLineEdit("0")
+        self.repeat_interval_edit.setFixedWidth(80)
+        repeat_interval_layout.addWidget(self.repeat_interval_edit)
+        repeat_interval_layout.addWidget(QLabel("秒"))
+        repeat_interval_layout.addStretch()
+        
+        self.repeat_interval_group.setLayout(repeat_interval_layout)
+        self.repeat_interval_group.setVisible(False)  # 默认隐藏
+        mode_row_layout.addWidget(self.repeat_interval_group)
+        
+        # 重复次数设置QGroupBox（仅在重复模式下显示）
+        self.repeat_count_group = QGroupBox("重复次数")
+        repeat_count_layout = QHBoxLayout()
+        repeat_count_layout.setSpacing(5)
+        
+        # 使用QComboBox，支持下拉选择和手动输入
+        self.repeat_count_combo = QComboBox()
+        self.repeat_count_combo.setEditable(True)  # 允许手动输入
+        self.repeat_count_combo.addItems(['无限', '10', '100', '1000'])
+        self.repeat_count_combo.setCurrentText('无限')  # 默认无限
+        self.repeat_count_combo.setFixedWidth(120)
+        
+        repeat_count_layout.addWidget(self.repeat_count_combo)
+        repeat_count_layout.addStretch()
+        
+        self.repeat_count_group.setLayout(repeat_count_layout)
+        self.repeat_count_group.setVisible(False)  # 默认隐藏
+        mode_row_layout.addWidget(self.repeat_count_group)
+        
+        # 添加弹性空间，使三个QGroupBox靠左对齐
+        mode_row_layout.addStretch()
+        
+        # 将水平布局添加到主布局
+        layout.addLayout(mode_row_layout)
         
         # 文件数量设置组
         limit_group = QGroupBox("文件数量设置")
@@ -285,6 +349,21 @@ class FileGeneratorUI(QWidget):
         
         interval_group.setLayout(interval_layout)
         layout.addWidget(interval_group)
+        
+        
+        # 生成后删除选项
+        delete_group = QGroupBox("生成选项")
+        delete_layout = QHBoxLayout()
+        delete_layout.setSpacing(5)
+        
+        self.delete_after_generate = QCheckBox("生成后删除文件")
+        self.delete_after_generate.setChecked(False)  # 默认不删除
+        
+        delete_layout.addWidget(self.delete_after_generate)
+        delete_layout.addStretch()
+        
+        delete_group.setLayout(delete_layout)
+        layout.addWidget(delete_group)
         
         # 操作按钮组
         btn_group = QGroupBox("操作")
@@ -432,6 +511,19 @@ class FileGeneratorUI(QWidget):
         
         status_group.setLayout(status_layout)
         layout.addWidget(status_group)
+        
+        # 初始化模式显示状态
+        self.on_mode_changed()
+
+    def on_mode_changed(self):
+        """模式切换时的处理，控制重复相关设置的显示和启用状态"""
+        is_repeat = self.loop_mode.isChecked()
+        # 重复间隔设置组显示/隐藏
+        self.repeat_interval_group.setVisible(is_repeat)
+        # 重复次数设置组显示/隐藏
+        self.repeat_count_group.setVisible(is_repeat)
+        # 单次模式下禁用"生成后删除文件"选项
+        self.delete_after_generate.setEnabled(is_repeat)
 
     def check_config_status(self):
         """检查配置文件状态并更新按钮"""
@@ -461,12 +553,23 @@ class FileGeneratorUI(QWidget):
                         self.size_unit.setCurrentText(config.get('file_size_min_unit', 'MB'))
                         self.size_unit2.setCurrentText(config.get('file_size_max_unit', 'MB'))
                         mode = config.get('mode', '单次')
-                        if mode == '循环':
+                        if mode == '循环' or mode == '重复':
                             self.loop_mode.setChecked(True)
                         else:
                             self.single_mode.setChecked(True)
                         self.limit_edit.setText(str(config.get('max_files', '1000')))
                         self.interval_edit.setText(str(config.get('interval', '0.01')))
+                        self.repeat_interval_edit.setText(str(config.get('repeat_interval', '0')))
+                        repeat_count = config.get('repeat_count', '无限')
+                        # 如果配置中的值不在下拉列表中，则设置为当前文本
+                        index = self.repeat_count_combo.findText(repeat_count)
+                        if index >= 0:
+                            self.repeat_count_combo.setCurrentIndex(index)
+                        else:
+                            self.repeat_count_combo.setCurrentText(repeat_count)
+                        self.delete_after_generate.setChecked(config.get('delete_after', False))
+                        # 更新模式显示状态
+                        self.on_mode_changed()
                         logger.info(f"配置文件加载成功：{config}")
             except Exception as e:
                 logger.error(f"加载配置文件失败: {str(e)}")
@@ -543,6 +646,31 @@ class FileGeneratorUI(QWidget):
             logger.warning(error_msg)
             self.update_error_status(error_msg)
             return False
+        
+        # 验证重复间隔和重复次数（仅在重复模式下）
+        if self.loop_mode.isChecked():
+            try:
+                repeat_interval = float(self.repeat_interval_edit.text())
+                if repeat_interval < 0:
+                    raise ValueError
+            except ValueError:
+                error_msg = "请输入有效的重复间隔"
+                logger.warning(error_msg)
+                self.update_error_status(error_msg)
+                return False
+            
+            # 验证重复次数
+            repeat_count_text = self.repeat_count_combo.currentText().strip()
+            if repeat_count_text and repeat_count_text != '无限':
+                try:
+                    repeat_count = int(repeat_count_text)
+                    if repeat_count <= 0:
+                        raise ValueError
+                except ValueError:
+                    error_msg = "请输入有效的重复次数（必须为正整数）"
+                    logger.warning(error_msg)
+                    self.update_error_status(error_msg)
+                    return False
             
         return True
 
@@ -612,6 +740,20 @@ class FileGeneratorUI(QWidget):
         try:
             # 创建并启动工作线程
             logger.info("创建工作线程")
+            # 获取重复间隔，如果不在重复模式下则为0
+            repeat_interval = float(self.repeat_interval_edit.text()) if self.loop_mode.isChecked() else 0
+            # 获取重复次数
+            max_repeat_count = None  # 默认无限
+            if self.loop_mode.isChecked():
+                repeat_count_text = self.repeat_count_combo.currentText().strip()
+                if repeat_count_text and repeat_count_text != '无限':
+                    try:
+                        max_repeat_count = int(repeat_count_text)
+                        if max_repeat_count <= 0:
+                            max_repeat_count = None
+                    except ValueError:
+                        max_repeat_count = None
+            
             self.worker = FileGeneratorWorker(
                 target_dir=self.dir_edit.text(),
                 file_size_min=float(self.size_min.text()),
@@ -619,7 +761,10 @@ class FileGeneratorUI(QWidget):
                 size_unit=self.size_unit.currentText(),
                 is_loop=self.loop_mode.isChecked(),
                 max_files=int(self.limit_edit.text()),
-                interval=float(self.interval_edit.text())
+                interval=float(self.interval_edit.text()),
+                repeat_interval=repeat_interval,
+                delete_after=self.delete_after_generate.isChecked(),
+                max_repeat_count=max_repeat_count
             )
             
             # 连接信号
@@ -628,6 +773,8 @@ class FileGeneratorUI(QWidget):
             self.worker.progress_value.connect(self.update_progress_bar)
             self.worker.finished.connect(self.generation_finished)
             self.worker.stopped.connect(self.generation_stopped)  # 添加停止信号连接
+            self.worker.wait_started.connect(self.on_wait_started)  # 等待开始信号
+            self.worker.wait_finished.connect(self.on_wait_finished)  # 等待结束信号
             
             # 更新状态
             status_msg = "正在准备生成文件..."
@@ -682,7 +829,7 @@ class FileGeneratorUI(QWidget):
         logger.debug(f"进度更新: {message}")
         self.setWindowTitle('本地文件产生器')
         # 按钮状态控制
-        if "等待3秒后开始下一轮" in message or ("开始" in message and "文件生成目录" in message):
+        if "等待" in message and "后开始下一轮" in message or ("开始" in message and "文件生成目录" in message):
             self.set_running_state()
         # 根据消息类型设置不同的样式
         if "错误" in message or "已存在" in message:
@@ -702,6 +849,18 @@ class FileGeneratorUI(QWidget):
         """更新进度条"""
         self.current_progress = value  # 记录当前进度
         self.progress_bar.setValue(value)
+    
+    def on_wait_started(self):
+        """等待开始时的处理，禁用所有输入"""
+        self.disable_inputs(True)
+    
+    def on_wait_finished(self):
+        """等待结束时的处理，恢复输入状态（但保持运行状态）"""
+        # 如果正在运行，保持禁用状态；如果已停止，恢复启用状态
+        if self.worker and self.worker.isRunning():
+            self.disable_inputs(True)
+        else:
+            self.disable_inputs(False)
         
     def generation_stopped(self):
         """生成停止的处理"""
@@ -782,6 +941,10 @@ class FileGeneratorUI(QWidget):
         self.loop_mode.setEnabled(not disabled)
         self.limit_edit.setEnabled(not disabled)
         self.interval_edit.setEnabled(not disabled)
+        # 重复间隔和重复次数只有在重复模式下才显示，所以只需要检查是否禁用
+        self.repeat_interval_edit.setEnabled(not disabled)
+        self.repeat_count_combo.setEnabled(not disabled)
+        self.delete_after_generate.setEnabled(not disabled)
 
     def save_config(self):
         if not self.dir_edit.text():
@@ -794,9 +957,12 @@ class FileGeneratorUI(QWidget):
             'file_size_max': self.size_max.text(),
             'file_size_min_unit': self.size_unit.currentText(),
             'file_size_max_unit': self.size_unit2.currentText(),
-            'mode': '循环' if self.loop_mode.isChecked() else '单次',
+            'mode': '重复' if self.loop_mode.isChecked() else '单次',
             'max_files': self.limit_edit.text(),
             'interval': self.interval_edit.text(),
+            'repeat_interval': self.repeat_interval_edit.text() if self.loop_mode.isChecked() else '0',
+            'repeat_count': self.repeat_count_combo.currentText() if self.loop_mode.isChecked() else '无限',
+            'delete_after': self.delete_after_generate.isChecked(),
         }
         # 创建配置目录
         program_data = os.environ.get('ProgramData', r'C:\ProgramData')

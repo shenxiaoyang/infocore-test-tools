@@ -8,7 +8,7 @@ class FileGenerator:
     """
     负责生成指定数量、大小、内容的测试文件，不依赖任何UI。
     """
-    def __init__(self, target_dir, file_size_min, file_size_max, size_unit, max_files, is_loop=False, interval=0):
+    def __init__(self, target_dir, file_size_min, file_size_max, size_unit, max_files, is_loop=False, interval=0, repeat_interval=0, delete_after=False, max_repeat_count=None):
         self.target_dir = target_dir
         self.file_size_min = file_size_min
         self.file_size_max = file_size_max
@@ -16,6 +16,9 @@ class FileGenerator:
         self.max_files = max_files
         self.is_loop = is_loop
         self.interval = interval
+        self.repeat_interval = repeat_interval
+        self.delete_after = delete_after
+        self.max_repeat_count = max_repeat_count  # None表示无限
         self.chunk_size = 10 * 1024 * 1024
 
     def convert_to_bytes(self, size, unit):
@@ -51,8 +54,8 @@ class FileGenerator:
             random_suffix = ''.join(random.choices('0123456789ABCDEF', k=8))
             parent_dir_name = f"{round_number}_{random_suffix}"
             files_dir = os.path.join(self.target_dir, parent_dir_name)
-            # 清理上一次的目录（仅循环模式下）
-            if self.is_loop and last_files_dir and os.path.exists(last_files_dir):
+            # 清理上一次的目录（仅在重复模式且设置了生成后删除时）
+            if self.is_loop and self.delete_after and last_files_dir and os.path.exists(last_files_dir):
                 try:
                     shutil.rmtree(last_files_dir)
                 except Exception:
@@ -104,23 +107,41 @@ class FileGenerator:
                 finished_callback(files_dir, files_created, total_size)
             if progress_callback:
                 progress_callback('finished', files_dir, files_created, self.max_files, total_size, round_number)
+            
+            # 如果设置了生成后删除，则删除生成的文件
+            if self.delete_after:
+                try:
+                    shutil.rmtree(files_dir)
+                except Exception as e:
+                    # 删除失败不影响主流程，可以记录日志
+                    pass
+            
             if not self.is_loop:
                 break
+            
+            # 检查是否达到最大重复次数
+            if self.max_repeat_count is not None and round_number >= self.max_repeat_count:
+                break
+            
             round_number += 1
             if progress_callback:
                 progress_callback('loop_wait', files_dir, files_created, self.max_files, total_size, round_number-1)
-            # 循环等待3秒，期间可暂停和停止
-            waited = 0.0
-            while waited < 3.0:
-                if stop_flag and stop_flag():
-                    if stopped_callback:
-                        stopped_callback(files_dir, files_created, self.max_files, total_size, round_number)
-                    return
-                while pause_flag and pause_flag():
+            # 重复模式下等待指定间隔时间，期间可暂停和停止
+            if self.repeat_interval > 0:
+                waited = 0.0
+                while waited < self.repeat_interval:
                     if stop_flag and stop_flag():
                         if stopped_callback:
                             stopped_callback(files_dir, files_created, self.max_files, total_size, round_number)
                         return
+                    while pause_flag and pause_flag():
+                        if stop_flag and stop_flag():
+                            if stopped_callback:
+                                stopped_callback(files_dir, files_created, self.max_files, total_size, round_number)
+                            return
+                        time.sleep(0.1)
                     time.sleep(0.1)
-                time.sleep(0.1)
-                waited += 0.1
+                    waited += 0.1
+            
+            # 等待结束后，下一轮开始前发送start信号（在while循环开始处会再次发送，但这里确保等待结束后立即发送）
+            # 注意：start信号会在while循环开始处发送，所以这里不需要重复发送

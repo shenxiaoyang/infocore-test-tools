@@ -596,8 +596,10 @@ class InstallUpdateAgentThread(QThread):
                 logger.info("安装完成")
                 self.progress_signal.emit(self.row, '安装完成，等待刷新...')
             else:
-                logger.error(f"安装失败: 退出码={exit_code}, 错误: {stderr_content}")
-                self.progress_signal.emit(self.row, f'安装失败: {stderr_content}')
+                # 处理下stdout_content，去掉shell中所有的打印的颜色信息
+                stdout_content = re.sub(r'\x1b\[[0-9;]*m', '', stdout_content, flags=re.MULTILINE)
+                logger.error(f"安装失败: 退出码={exit_code}, 错误: {stdout_content}")
+                self.progress_signal.emit(self.row, f'安装失败: \n{stdout_content}')
             
             ssh.close()
         except Exception as e:
@@ -692,8 +694,17 @@ class LinuxProxyManagerDialog(QDialog):
             self.table.setItem(row, 1, type_item)
             kernel_item = QTableWidgetItem(item.get('kernel', ''))
             self.table.setItem(row, 2, kernel_item)
-            version_item = QTableWidgetItem(item.get('version', ''))
+            # 如果有正在安装的临时状态，优先显示安装进度；否则显示已记录的版本
+            if item.get('installing'):
+                ver_text = item.get('install_progress', '准备中...')
+            else:
+                ver_text = item.get('version', '')
+            version_item = QTableWidgetItem(ver_text)
             version_item.setTextAlignment(Qt.AlignCenter)
+            # 如果有安装错误信息，设置为tooltip，鼠标悬停可查看
+            install_err = item.get('install_error')
+            if install_err:
+                version_item.setToolTip(install_err)
             self.table.setItem(row, 3, version_item)
             status_item = QTableWidgetItem(item.get('status', ''))
             status_item.setTextAlignment(Qt.AlignCenter)
@@ -754,7 +765,14 @@ class LinuxProxyManagerDialog(QDialog):
             latest_version = self.status_bar.text().replace('最新代理版本：', '').strip()
         
         # 动态菜单
-        if version == '未安装' or not version or version.startswith('失败'):
+        # 如果当前版本显示为失败或安装失败，视为不可比较版本号
+        def _is_version_comparable(v):
+            if not v:
+                return False
+            # 认为以数字开头的是可比较版本（例如 6.2.11-880）
+            return bool(re.match(r'^\d', v))
+
+        if version == '未安装' or not version or version.startswith('失败') or version.startswith('安装失败'):
             install_action = menu.addAction("安装代理")
             install_action.setEnabled(True)
             
@@ -771,9 +789,14 @@ class LinuxProxyManagerDialog(QDialog):
                 self.install_or_update_agent(row)  # 不传递文件名，让方法自动选择
         else:
             update_action = menu.addAction("更新代理")
-            if latest_version and version_compare(version, latest_version) >= 0:
-                update_action.setEnabled(False)
-            else:
+            # 只有在版本可比较时才调用比较函数，防止异常
+            try:
+                if latest_version and _is_version_comparable(version) and _is_version_comparable(latest_version) and version_compare(version, latest_version) >= 0:
+                    update_action.setEnabled(False)
+                else:
+                    update_action.setEnabled(True)
+            except Exception:
+                # 版本格式异常时，禁用更新比较，让用户手动选择
                 update_action.setEnabled(True)
             
             # 添加分隔线
@@ -810,6 +833,11 @@ class LinuxProxyManagerDialog(QDialog):
         logger.info(f"收到代理信息更新结果: Row={row}, 错误={error_msg}")
         if error_msg:
             logger.error(f"更新代理信息失败: Row={row}, 错误: {error_msg}")
+            # 记录失败信息到install_error，避免后续刷新覆盖用户关注的错误
+            if 0 <= row < len(self.proxy_list):
+                self.proxy_list[row]['install_error'] = f'失败: {error_msg}'
+                # 保持installing状态为False
+                self.proxy_list[row]['installing'] = False
             version_item = QTableWidgetItem(f'失败: {error_msg}')
             version_item.setTextAlignment(Qt.AlignCenter)
             self.table.setItem(row, 3, version_item)
@@ -819,15 +847,27 @@ class LinuxProxyManagerDialog(QDialog):
             type_item.setTextAlignment(Qt.AlignCenter)
             self.table.setItem(row, 1, type_item)
             self.table.setItem(row, 2, QTableWidgetItem(info.get('kernel', '')))
-            version_item = QTableWidgetItem(info.get('version', ''))
-            version_item.setTextAlignment(Qt.AlignCenter)
-            self.table.setItem(row, 3, version_item)
-            # 保存到本地配置
-            if 0 <= row < len(self.proxy_list):
-                self.proxy_list[row]['type'] = info.get('type', '')
-                self.proxy_list[row]['kernel'] = info.get('kernel', '')
-                self.proxy_list[row]['version'] = info.get('version', '')
-                self.save_config()
+            # 如果之前有安装错误并且远端返回仍然是'未安装'，保持安装错误显示，不覆盖为'未安装'
+            version_text = info.get('version', '')
+            if 0 <= row < len(self.proxy_list) and self.proxy_list[row].get('install_error') and version_text in ('未安装', '', None):
+                # 保持之前的错误信息在表格中显示
+                err = self.proxy_list[row].get('install_error')
+                vi = QTableWidgetItem(self.proxy_list[row].get('version', err))
+                vi.setTextAlignment(Qt.AlignCenter)
+                vi.setToolTip(err)
+                self.table.setItem(row, 3, vi)
+            else:
+                version_item = QTableWidgetItem(version_text)
+                version_item.setTextAlignment(Qt.AlignCenter)
+                self.table.setItem(row, 3, version_item)
+                # 保存到本地配置
+                if 0 <= row < len(self.proxy_list):
+                    self.proxy_list[row]['type'] = info.get('type', '')
+                    self.proxy_list[row]['kernel'] = info.get('kernel', '')
+                    self.proxy_list[row]['version'] = version_text
+                    # 清理可能遗留的install_error（远端已报告版本信息）
+                    self.proxy_list[row].pop('install_error', None)
+                    self.save_config()
         # 清理线程引用
         if hasattr(self, '_update_threads'):
             self._update_threads = [t for t in self._update_threads if t.isRunning()]
@@ -958,6 +998,12 @@ class LinuxProxyManagerDialog(QDialog):
                 return
         
         # 进度初始
+        # 标记该行正在安装，保存临时安装进度，防止刷新覆盖显示
+        if 0 <= row < len(self.proxy_list):
+            self.proxy_list[row]['installing'] = True
+            self.proxy_list[row]['install_progress'] = '准备中...'
+            # 清除之前可能存在的错误信息
+            self.proxy_list[row].pop('install_error', None)
         version_item = QTableWidgetItem('准备中...')
         version_item.setTextAlignment(Qt.AlignCenter)
         self.table.setItem(row, 3, version_item)
@@ -973,16 +1019,35 @@ class LinuxProxyManagerDialog(QDialog):
 
     def on_agent_install_progress(self, row, text):
         logger.info(f"安装进度更新: Row={row}, 进度={text}")
-        version_item = QTableWidgetItem(text)
-        version_item.setTextAlignment(Qt.AlignCenter)
-        self.table.setItem(row, 3, version_item)
-        
+        # 更新内存中的安装进度状态，防止刷新表格时丢失
+        if 0 <= row < len(self.proxy_list):
+            self.proxy_list[row]['installing'] = True
+            self.proxy_list[row]['install_progress'] = text
+            # 如果是失败或异常信息，保存为install_error，供tooltip显示
+            if text.startswith('安装失败') or text.startswith('失败:') or text.startswith('卸载脚本执行失败'):
+                # 标记安装已结束，记录错误信息并将version列展示为简洁的失败状态
+                self.proxy_list[row]['installing'] = False
+                self.proxy_list[row]['install_error'] = text
+                self.proxy_list[row]['version'] = '安装失败'
+                # 在表格中显示简洁的失败状态，并把完整错误信息放到 tooltip
+                vi = QTableWidgetItem('安装失败')
+                vi.setTextAlignment(Qt.AlignCenter)
+                vi.setToolTip(text)
+                self.table.setItem(row, 3, vi)
+            else:
+                # 普通进度文本直接显示
+                vi = QTableWidgetItem(text)
+                vi.setTextAlignment(Qt.AlignCenter)
+                self.table.setItem(row, 3, vi)
+
         # 如果安装完成，自动刷新该行的代理信息
         if text == '安装完成，等待刷新...':
             logger.info(f"安装完成，开始刷新代理信息: Row={row}")
+            # 标记安装已结束（等待后台刷新替换版本）
+            if 0 <= row < len(self.proxy_list):
+                self.proxy_list[row]['installing'] = False
             # 延迟一点时间，确保安装完全完成
             time.sleep(2)
-            
             # 刷新该行的代理信息
             if 0 <= row < len(self.proxy_list):
                 ip = self.proxy_list[row].get('ip')
